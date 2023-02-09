@@ -10,11 +10,15 @@ create table public.location (
     id serial primary key,
     latitude double precision,
     longitude double precision
+
+    -- FIXME: Unique lat + long
 );
 
 create table public.animal_type (
     id bigserial primary key,
     type varchar(255)
+
+    -- FIXME: Unique type
 );
 
 create table public.animal (
