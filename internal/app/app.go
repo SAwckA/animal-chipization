@@ -30,21 +30,25 @@ func Run() error {
 
 	accountRepository := psql.NewAccountRepository(psqlDB)
 	locationRepository := psql.NewLocationRepository(psqlDB)
+	animalTypeRepository := psql.NewAnimalTypeRepository(psqlDB)
 
 	accountUsecase := usecase.NewAccountUsecase(accountRepository)
 	locationUsecase := usecase.NewLocationUsecase(locationRepository)
+	animalTypeUsecase := usecase.NewAnimalTypeUsecase(animalTypeRepository)
 
 	middlerware := httpController.NewMiddleware(accountUsecase)
 
 	accountHandler := httpController.NewAccountHandler(accountUsecase, middlerware)
 	registerHandler := httpController.NewRegisterHandler(accountUsecase, middlerware)
 	locationHandler := httpController.NewLocationHandler(locationUsecase, middlerware)
+	animalTypeHandler := httpController.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
 
 	router := gin.New()
 
 	router = accountHandler.InitRoutes(router)
 	router = registerHandler.InitRoutes(router)
 	router = locationHandler.InitRoutes(router)
+	router = animalTypeHandler.InitRoutes(router)
 
 	server := controller.NewHTTPServer("8000", router)
 
