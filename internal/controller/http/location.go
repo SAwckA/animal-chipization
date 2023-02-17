@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const pointIDParam = "pointId"
+
 type locationUsecase interface {
 	CreateLocation(lat, lon float64) (*domain.Location, error)
 	GetLocation(locationID int) *domain.Location
