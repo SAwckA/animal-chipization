@@ -1,5 +1,10 @@
 package domain
 
+import "errors"
+
+// Аккаунт не найден по id
+var ErrAccountNotFoundByID = errors.New("account not found by id")
+
 type Account struct {
 	ID        int32  `json:"id" db:"id"`
 	FirstName string `json:"firstName" db:"firstname"`
