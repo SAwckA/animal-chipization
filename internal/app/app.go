@@ -31,10 +31,12 @@ func Run() error {
 	accountRepository := psql.NewAccountRepository(psqlDB)
 	locationRepository := psql.NewLocationRepository(psqlDB)
 	animalTypeRepository := psql.NewAnimalTypeRepository(psqlDB)
+	animalRepository := psql.NewAnimalRepository(psqlDB)
 
 	accountUsecase := usecase.NewAccountUsecase(accountRepository)
 	locationUsecase := usecase.NewLocationUsecase(locationRepository)
 	animalTypeUsecase := usecase.NewAnimalTypeUsecase(animalTypeRepository)
+	animalUsecase := usecase.NewAnimalUsecase(animalRepository, animalTypeRepository)
 
 	middlerware := httpController.NewMiddleware(accountUsecase)
 
@@ -42,6 +44,7 @@ func Run() error {
 	registerHandler := httpController.NewRegisterHandler(accountUsecase, middlerware)
 	locationHandler := httpController.NewLocationHandler(locationUsecase, middlerware)
 	animalTypeHandler := httpController.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
+	animalHandler := httpController.NewAnimalHandler(animalUsecase, middlerware)
 
 	router := gin.New()
 
@@ -49,6 +52,7 @@ func Run() error {
 	router = registerHandler.InitRoutes(router)
 	router = locationHandler.InitRoutes(router)
 	router = animalTypeHandler.InitRoutes(router)
+	router = animalHandler.InitRoutes(router)
 
 	server := controller.NewHTTPServer("8000", router)
 
