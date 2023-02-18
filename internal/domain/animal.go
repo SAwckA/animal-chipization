@@ -27,19 +27,30 @@ var ErrAnimalEditTypeParamsInvalid = errors.New("invalid edit animal type params
 // Отсутсвие типов в животного
 var ErrAnimalTypeListEmpty = errors.New("empty animal type list")
 
+var ErrAnimalVisitLocationNotFound = errors.New("animal dont visited this location")
+
 type Animal struct {
-	ID                 int        `json:"id" db:"id"`
-	AnimalTypes        []int      `json:"animalTypes"`
-	Lenght             float32    `json:"lenght" db:"lenght"`
-	Weight             float32    `json:"weight" db:"weight"`
-	Height             float32    `json:"height" db:"height"`
-	Gender             string     `json:"gender" db:"gender"`
-	LifeStatus         string     `json:"lifeStatus" db:"lifestatus"`
-	ChippingDateTime   time.Time  `json:"chippinDateTime" db:"chippinglocationid"`
-	ChipperID          int        `json:"chippedId" db:"chipperid"`
-	ChippingLocationId int        `json:"chippingLocationId" db:"chippinglocationid"`
-	VisitedLocations   []int      `json:"visitedLocations" db:"animaltypes"`
-	DeathDateTime      *time.Time `json:"deathDateTime" db:"deathdatetime"`
+	ID                 int               `json:"id" db:"id"`
+	AnimalTypes        []int             `json:"animalTypes"`
+	Lenght             float32           `json:"lenght" db:"lenght"`
+	Weight             float32           `json:"weight" db:"weight"`
+	Height             float32           `json:"height" db:"height"`
+	Gender             string            `json:"gender" db:"gender"`
+	LifeStatus         string            `json:"lifeStatus" db:"lifestatus"`
+	ChippingDateTime   time.Time         `json:"chippinDateTime" db:"chippinglocationid"`
+	ChipperID          int               `json:"chippedId" db:"chipperid"`
+	ChippingLocationId int               `json:"chippingLocationId" db:"chippinglocationid"`
+	VisitedLocations   []VisitedLocation `json:"visitedLocations" db:"animaltypes"`
+	DeathDateTime      *time.Time        `json:"deathDateTime" db:"deathdatetime"`
+}
+
+func (a *Animal) FindVisitedLocaionPos(id int) (int, error) {
+	for i, v := range a.VisitedLocations {
+		if v.ID == id {
+			return i, nil
+		}
+	}
+	return 0, ErrAnimalVisitLocationNotFound
 }
 
 func (a *Animal) ReplaceAnimalType(oldTypeID, newTypeID int) {
@@ -71,17 +82,24 @@ func (a *Animal) RemoveAnimalType(typeID int) {
 }
 
 func (a *Animal) Response() map[string]interface{} {
+	var visitedLocations []int
+
+	for _, v := range a.VisitedLocations {
+		visitedLocations = append(visitedLocations, v.ID)
+	}
+
 	resp := map[string]interface{}{
-		"id":               a.ID,
-		"animalTypes":      a.AnimalTypes,
-		"length":           a.Lenght,
-		"weight":           a.Weight,
-		"height":           a.Height,
-		"gender":           a.Gender,
-		"lifeStatus":       a.LifeStatus,
-		"chippingDateTime": a.ChippingDateTime.Format(time.RFC3339),
-		"chipperId":        a.ChipperID,
-		"visitedLocations": a.VisitedLocations,
+		"id":                 a.ID,
+		"animalTypes":        a.AnimalTypes,
+		"length":             a.Lenght,
+		"weight":             a.Weight,
+		"height":             a.Height,
+		"gender":             a.Gender,
+		"lifeStatus":         a.LifeStatus,
+		"chippingDateTime":   a.ChippingDateTime.Format(time.RFC3339),
+		"chippingLocationId": a.ChippingLocationId,
+		"chipperId":          a.ChipperID,
+		"visitedLocations":   visitedLocations,
 	}
 
 	if a.DeathDateTime == nil {
