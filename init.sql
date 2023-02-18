@@ -57,8 +57,7 @@ create table animal_locations_list (
     id serial primary key,
     animal_id int references animal(id) on delete cascade,
     location_id int references location(id),
-    date_time_of_visited_location_point timestamptz,
-    unique(animal_id, location_id)
+    date_time_of_visited_location_point timestamptz
 );
 
 

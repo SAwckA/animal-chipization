@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	animalTable          = "public.animal"
-	animalTypesListTable = "public.animal_types_list"
+	animalTable                 = "public.animal"
+	animalTypesListTable        = "public.animal_types_list"
+	animalVisitedLocationsTable = "public.animal_locations_list"
 )
 
 type AnimalRepository struct {
@@ -25,18 +26,50 @@ func NewAnimalRepository(db *sqlx.DB) *AnimalRepository {
 
 func (r *AnimalRepository) GetAnimal(animalID int) *domain.Animal {
 
-	var typesString string
-	var animal domain.Animal
-
 	query := fmt.Sprintf(`
-	select a.*, json_agg(atl.type_id) as animalTypes
-	from %s atl
-	inner join %s a 
-	on a.id = atl.animal_id
-	where a.id = $1
-	group by a.id`, animalTypesListTable, animalTable)
+	with locations as (
+		select 
+			tmp.animal_id as animal_id,
+			json_agg(tmp.obj) as locations_list 
+		from (
+			select
+				animal_id,
+				json_build_object(
+					'id', all2.id,
+					'animal_id', all2.animal_id,
+					'location_id', all2.location_id,
+					'date_time_of_visited_location_point', all2.date_time_of_visited_location_point 
+				) as obj
+			from %s all2
+			order by all2.date_time_of_visited_location_point
+		) as tmp
+		group by tmp.animal_id
+	), 
+	types1 as (
+		select
+			atl.animal_id as animal_id,
+			jsonb_agg(atl.type_id) as types_list
+		from %s atl
+		group by atl.animal_id 
+	)
+	select 
+		an.*,
+		types1.types_list,
+		locations.locations_list
+	from %s an
+	left join locations on locations.animal_id = an.id
+	left join types1 on types1.animal_id = an.id
+	where an.id = $1`,
+		animalVisitedLocationsTable,
+		animalTypesListTable,
+		animalTable,
+	)
 
 	row := r.db.QueryRow(query, animalID)
+
+	var typesString *string
+	var visitedLocationString *string
+	var animal domain.Animal
 
 	if err := row.Scan(
 		&animal.ID,
@@ -50,14 +83,23 @@ func (r *AnimalRepository) GetAnimal(animalID int) *domain.Animal {
 		&animal.ChippingLocationId,
 		&animal.DeathDateTime,
 		&typesString,
+		&visitedLocationString,
 	); err != nil {
 		return nil
 	}
 
-	var types []int
-	json.Unmarshal([]byte(typesString), &types)
+	if typesString != nil {
+		json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
+	} else {
+		animal.AnimalTypes = make([]int, 0)
+	}
 
-	animal.AnimalTypes = types
+	if visitedLocationString != nil {
+		json.Unmarshal([]byte(*visitedLocationString), &animal.VisitedLocations)
+	} else {
+		animal.VisitedLocations = make([]domain.VisitedLocation, 0)
+	}
+
 	return &animal
 }
 
@@ -68,34 +110,34 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 	placeholder := 1
 
 	if params.StartDateTime != nil {
-		searchParams = append(searchParams, "a.chippingdatetime > $1")
+		searchParams = append(searchParams, "an.chippingdatetime > $1")
 		searchData = append(searchData, params.StartDateTime)
 		placeholder++
 	}
 
 	if params.EndDateTime != nil {
-		searchParams = append(searchParams, "a.chippingdatetime < $2")
+		searchParams = append(searchParams, "an.chippingdatetime < $2")
 		searchData = append(searchData, params.EndDateTime)
 		placeholder++
 	}
 
 	if params.ChipperID != nil {
-		searchParams = append(searchParams, fmt.Sprintf(`a.chipperid = $%d`, placeholder))
+		searchParams = append(searchParams, fmt.Sprintf(`an.chipperid = $%d`, placeholder))
 		searchData = append(searchData, params.ChipperID)
 		placeholder++
 	}
 	if params.ChippedLocationID != nil {
-		searchParams = append(searchParams, fmt.Sprintf(`a.chippinglocationid = $%d`, placeholder))
+		searchParams = append(searchParams, fmt.Sprintf(`an.chippinglocationid = $%d`, placeholder))
 		searchData = append(searchData, params.ChippedLocationID)
 		placeholder++
 	}
 	if params.LifeStatus != nil {
-		searchParams = append(searchParams, fmt.Sprintf(`a.lifestatus = $%d`, placeholder))
+		searchParams = append(searchParams, fmt.Sprintf(`an.lifestatus = $%d`, placeholder))
 		searchData = append(searchData, params.LifeStatus)
 		placeholder++
 	}
 	if params.Gender != nil {
-		searchParams = append(searchParams, fmt.Sprintf(`a.gender = $%d`, placeholder))
+		searchParams = append(searchParams, fmt.Sprintf(`an.gender = $%d`, placeholder))
 		searchData = append(searchData, params.Gender)
 		placeholder++
 	}
@@ -106,18 +148,50 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 	}
 
 	query := fmt.Sprintf(`
-	select a.*, json_agg(atl.type_id) as animalTypes
-	from %s atl
-	inner join %s a 
-	on a.id = atl.animal_id
+	with locations as (
+		select 
+			tmp.animal_id as animal_id,
+			json_agg(tmp.obj) as locations_list 
+		from (
+			select
+				animal_id,
+				json_build_object(
+					'id', all2.id,
+					'animal_id', all2.animal_id,
+					'location_id', all2.location_id,
+					'date_time_of_visited_location_point', all2.date_time_of_visited_location_point 
+				) as obj
+			from %s all2
+			order by all2.date_time_of_visited_location_point
+		) as tmp
+		group by tmp.animal_id
+	), 
+	types1 as (
+		select
+			atl.animal_id as animal_id,
+			jsonb_agg(atl.type_id) as types_list
+		from %s atl
+		group by atl.animal_id 
+	)
+	select 
+		an.*,
+		types1.types_list,
+		locations.locations_list
+	from %s an
+	left join locations on locations.animal_id = an.id
+	left join types1 on types1.animal_id = an.id
 	%s
 		%s
-	group by a.id
 	offset $%d
-	limit $%d
-	order by a.id
-	`, animalTypesListTable, animalTable, isSearch, strings.Join(searchParams, " and "), placeholder, placeholder+1)
-
+	limit $%d`,
+		animalVisitedLocationsTable,
+		animalTypesListTable,
+		animalTable,
+		isSearch,
+		strings.Join(searchParams, " and "),
+		placeholder,
+		placeholder+1,
+	)
 	searchData = append(searchData, params.From)
 	searchData = append(searchData, params.Size)
 
@@ -131,7 +205,8 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 
 	for rows.Next() {
 		var animal domain.Animal
-		var typesString string
+		var typesString *string
+		var visitedLocationsString *string
 		if err := rows.Scan(
 			&animal.ID,
 			&animal.Weight,
@@ -144,17 +219,25 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 			&animal.ChippingLocationId,
 			&animal.DeathDateTime,
 			&typesString,
+			&visitedLocationsString,
 		); err != nil {
 			return nil
 		}
 
-		var types []int
-		json.Unmarshal([]byte(typesString), &types)
+		if typesString != nil {
+			json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
+		} else {
+			animal.AnimalTypes = make([]int, 0)
+		}
 
-		animal.AnimalTypes = types
+		if visitedLocationsString != nil {
+			json.Unmarshal([]byte(*visitedLocationsString), &animal.VisitedLocations)
+		} else {
+			animal.VisitedLocations = make([]domain.VisitedLocation, 0)
+		}
+
 		res = append(res, animal)
 	}
-
 	return &res
 }
 
