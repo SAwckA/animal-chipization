@@ -3,13 +3,14 @@ package psql
 import (
 	"animal-chipization/internal/domain"
 	"fmt"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/sirupsen/logrus"
 )
 
 const (
-	accountTable = "public.account"
+	accountTable                 = "public.account"
+	accountEmailUniqueConstraint = "account_email_key"
 )
 
 type AccountRepository struct {
@@ -20,73 +21,117 @@ func NewAccountRepository(db *sqlx.DB) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
-func (r *AccountRepository) InsertAccount(account *domain.Account) (*domain.Account, error) {
+func (r *AccountRepository) Create(account *domain.Account) (int, error) {
 	query := fmt.Sprintf(`insert into %s(firstName, lastName, email, password) values ($1, $2, $3, $4) returning id`, accountTable)
 
-	row := r.db.QueryRow(query, account.FirstName, account.LastName, account.Email, account.Password)
+	var id int
+	err := r.db.Get(&id, query, account.FirstName, account.LastName, account.Email, account.Password)
 
-	var id int32
-	if err := row.Scan(&id); err != nil {
-		return nil, err
+	if err != nil {
+		if strings.Contains(err.Error(), accountEmailUniqueConstraint) {
+			return 0, domain.ErrAccountAlreadyExist
+		}
+		return 0, err
 	}
 
-	account.ID = id
-	return account, nil
+	return id, nil
 }
 
-func (r *AccountRepository) GetAccountByID(id int32) (*domain.Account, error) {
+func (r *AccountRepository) GetByID(id int) (*domain.Account, error) {
 	query := fmt.Sprintf(`select id, firstName, lastName, email from %s where id=$1`, accountTable)
 
 	var account domain.Account
 
-	if err := r.db.Get(&account, query, id); err != nil {
-		return nil, err
+	if err := r.db.QueryRow(query, id).Scan(&account.ID, &account.FirstName, &account.LastName, &account.Email); err != nil {
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "account not found by id",
+		}
 	}
 
 	return &account, nil
 }
 
-func (r *AccountRepository) GetAccountByEmail(email string) (*domain.Account, error) {
+func (r *AccountRepository) GetByEmail(email string) (*domain.Account, error) {
 	query := fmt.Sprintf(`select id, firstname, lastname, email, password from %s where email=$1`, accountTable)
 
 	var account domain.Account
 
 	if err := r.db.Get(&account, query, email); err != nil {
-		return nil, err
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "account not found by id",
+		}
 	}
 
 	return &account, nil
 }
 
-func (r *AccountRepository) SearchAccount(firstName, lastName, email string, from, size int) []*domain.Account {
-	query := fmt.Sprintf(`
-		select * from %s 
-		where 
+func (r *AccountRepository) Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error) {
+	var searchQuery []string
+	var searchArgs []interface{}
+	searchArgs = append(searchArgs, size)
+	searchArgs = append(searchArgs, from)
 
-		(LOWER(firstname) like '%%' || LOWER($1) || '%%') 
-		and 
-		(LOWER(lastname) like '%%' || LOWER($2) || '%%')
-		and 
-		(LOWER(email) like '%%' || LOWER($3) || '%%') 
+	ph := 3
+	isSearch := "where"
 
-		LIMIT $4
-		OFFSET $5;
-	`, accountTable)
-
-	logrus.Warn(query)
-
-	var accounts []*domain.Account
-
-	err := r.db.Select(&accounts, query, firstName, lastName, email, size, from)
-
-	if err != nil {
-		return nil
+	if dto.FirstName != nil {
+		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(firstname) like '%%' || LOWER($%d) || '%%') ", ph))
+		searchArgs = append(searchArgs, dto.FirstName)
+		ph++
 	}
 
-	return accounts
+	if dto.LastName != nil {
+		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(lastname) like '%%' || LOWER($%d) || '%%')", ph))
+		searchArgs = append(searchArgs, dto.LastName)
+		ph++
+	}
+
+	if dto.Email != nil {
+		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(email) like '%%' || LOWER($%d) || '%%') ", ph))
+		searchArgs = append(searchArgs, dto.Email)
+	}
+
+	if len(searchQuery) == 0 {
+		isSearch = ""
+	}
+
+	query := fmt.Sprintf(`
+		select id, firstname, lastname, email from %s 
+		%s
+			%s
+		LIMIT $1
+		OFFSET $2`,
+		accountTable,
+		isSearch,
+		strings.Join(searchQuery, " and "),
+	)
+	var accounts []domain.Account
+
+	rows, err := r.db.Query(query, searchArgs...)
+
+	if err != nil {
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "database error",
+		}
+	}
+
+	for rows.Next() {
+		var account domain.Account
+
+		err = rows.Scan(&account.ID, &account.FirstName, &account.LastName, &account.Email)
+		accounts = append(accounts, account)
+	}
+
+	return &accounts, err
 }
 
-func (r *AccountRepository) FullUpdateAccount(newAccount *domain.Account) error {
+func (r *AccountRepository) Update(newAccount *domain.Account) error {
 
 	query := fmt.Sprintf(`
 		update %s
@@ -99,10 +144,18 @@ func (r *AccountRepository) FullUpdateAccount(newAccount *domain.Account) error 
 
 	_, err := r.db.Exec(query, newAccount.FirstName, newAccount.LastName, newAccount.Email, newAccount.Password, newAccount.ID)
 
-	return err
+	if err != nil {
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrConflict,
+			Description:   "account already exist",
+		}
+	}
+
+	return nil
 }
 
-func (r *AccountRepository) DeleteAccount(accoundID int) error {
+func (r *AccountRepository) Delete(accoundID int) error {
 
 	query := fmt.Sprintf(`
 	delete from %s
@@ -111,5 +164,12 @@ func (r *AccountRepository) DeleteAccount(accoundID int) error {
 
 	_, err := r.db.Exec(query, accoundID)
 
-	return err
+	if err != nil {
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrBadDatabaseOut,
+			Description:   "account linked with animal",
+		}
+	}
+	return nil
 }

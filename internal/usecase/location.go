@@ -4,8 +4,8 @@ import "animal-chipization/internal/domain"
 
 type locationRepository interface {
 	CreateLocation(lat, lon float64) (int, error)
-	GetLocation(locationID int) *domain.Location
-	UpdateLocation(*domain.Location) error
+	GetLocation(locationID int) (*domain.Location, error)
+	UpdateLocation(location *domain.Location) error
 	DeleteLocation(locationID int) error
 }
 
@@ -27,17 +27,18 @@ func (u *LocationUsecase) CreateLocation(lat, lon float64) (*domain.Location, er
 
 	return &domain.Location{
 		ID:        locationID,
-		Latitude:  lat,
-		Longitude: lon,
+		Latitude:  &lat,
+		Longitude: &lon,
 	}, nil
 }
 
-func (u *LocationUsecase) GetLocation(locationID int) *domain.Location {
+func (u *LocationUsecase) GetLocation(locationID int) (*domain.Location, error) {
 	return u.repo.GetLocation(locationID)
 }
 
-func (u *LocationUsecase) UpdateLocation(location *domain.Location) error {
-	return u.repo.UpdateLocation(location)
+func (u *LocationUsecase) UpdateLocation(locationID int, location *domain.Location) (*domain.Location, error) {
+	location.ID = locationID
+	return location, u.repo.UpdateLocation(location)
 }
 
 func (u *LocationUsecase) DeleteLocation(locationID int) error {

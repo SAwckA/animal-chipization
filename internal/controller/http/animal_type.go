@@ -2,10 +2,9 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"animal-chipization/internal/errors"
+	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,10 +12,10 @@ import (
 const typeParam = "typeId"
 
 type animalTypeUsecase interface {
-	GetType(typeID int) *domain.AnimalType
-	CreateType(typeName string) (*domain.AnimalType, error)
-	UpdateType(typeID int, typeName string) (*domain.AnimalType, error)
-	DeleteType(typeID int) error
+	Get(id int) (*domain.AnimalType, error)
+	Create(typeName string) (*domain.AnimalType, error)
+	Update(id int, typeName string) (*domain.AnimalType, error)
+	Delete(id int) error
 }
 
 type AnimalTypeHandler struct {
@@ -36,7 +35,7 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 			h.middleware.ckeckAuthHeaderMiddleware,
 			h.getAnimalType,
 		)
-		animalTypes.POST("/",
+		animalTypes.POST("",
 			h.middleware.authMiddleware,
 			h.createAnimalType,
 		)
@@ -54,135 +53,119 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *AnimalTypeHandler) getAnimalType(c *gin.Context) {
-	typeID, err := validateID(c, typeParam)
+	var typeID domain.TypeId
 
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	if err := c.BindUri(&typeID); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
 
-	animalType := h.usecase.GetType(typeID)
+	animalType, err := h.usecase.Get(typeID.ID)
 
-	if animalType == nil {
-		newErrorResponse(c, http.StatusNotFound, "Animal type not found", nil)
-		return
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		c.JSON(http.StatusOK, animalType.Response())
 	}
-
-	c.JSON(http.StatusOK, animalType)
-}
-
-type animalTypeRequest struct {
-	TypeName *string `json:"type"`
 }
 
 func (h *AnimalTypeHandler) createAnimalType(c *gin.Context) {
-	var input animalTypeRequest
+	var input domain.AnimalTypeDTO
 
 	if err := c.BindJSON(&input); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid input", nil)
+		badRequest(c, err.Error())
 		return
 	}
 
-	if input.TypeName == nil {
-		newErrorResponse(c, http.StatusBadRequest, "Null type data", nil)
-		return
+	animalType, err := h.usecase.Create(input.Type)
+
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		c.JSON(http.StatusCreated, animalType.Response())
 	}
-
-	if contentsOnlySpaces(*input.TypeName) {
-		newErrorResponse(c, http.StatusBadRequest, "Contents only spaces", nil)
-		return
-	}
-
-	animalType, err := h.usecase.CreateType(*input.TypeName)
-
-	if err != nil {
-		newErrorResponse(c, http.StatusConflict, "This type already exist", nil)
-		return
-	}
-
-	c.JSON(http.StatusOK, animalType)
 }
 
 func (h *AnimalTypeHandler) updateAnimalType(c *gin.Context) {
-	typeID, err := validateID(c, typeParam)
+	var typeID domain.TypeId
+	var input domain.AnimalTypeDTO
 
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	if err := c.BindUri(&typeID); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
-
-	var input animalTypeRequest
 
 	if err := c.BindJSON(&input); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+		badRequest(c, err.Error())
 		return
 	}
 
-	if input.TypeName == nil {
-		newErrorResponse(c, http.StatusBadRequest, "Null type data", nil)
-		return
+	animalType, err := h.usecase.Update(typeID.ID, input.Type)
+
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		c.JSON(http.StatusOK, animalType.Response())
 	}
-
-	if contentsOnlySpaces(*input.TypeName) {
-		newErrorResponse(c, http.StatusBadRequest, "Contents only spaces", nil)
-		return
-	}
-
-	newAnimalType, err := h.usecase.UpdateType(typeID, *input.TypeName)
-
-	if err == errors.ErrNotFound {
-		newErrorResponse(c, http.StatusNotFound, "animal type not found", nil)
-		return
-	}
-
-	if err != nil {
-		newErrorResponse(c, http.StatusConflict, "Animal type already exist", nil)
-		return
-	}
-
-	c.JSON(http.StatusOK, newAnimalType)
-
 }
 
 func (h *AnimalTypeHandler) deleteAnimalType(c *gin.Context) {
-	typeID, err := validateID(c, typeParam)
+	var typeID domain.TypeId
 
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	if err := c.BindUri(&typeID); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
 
-	err = h.usecase.DeleteType(typeID)
+	err := h.usecase.Delete(typeID.ID)
 
-	if err == errors.ErrNotFound {
-		newErrorResponse(c, http.StatusNotFound, "Animal type not found", nil)
-		return
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		c.JSON(http.StatusOK, nil)
 	}
-
-	if err != nil {
-		newErrorResponse(c, http.StatusConflict, "Animal has this type", nil)
-		return
-	}
-
-	c.JSON(http.StatusOK, nil)
-}
-
-func validateID(c *gin.Context, name string) (int, error) {
-	paramString := c.Param(name)
-
-	if paramString == "" || paramString == "null" {
-		return 0, errors.ErrInvalidID
-	}
-
-	res, err := strconv.Atoi(paramString)
-
-	if err != nil {
-		return 0, errors.ErrInvalidID
-	}
-
-	if res <= 0 {
-		return 0, errors.ErrInvalidID
-	}
-
-	return res, nil
 }

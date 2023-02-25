@@ -39,7 +39,11 @@ type UpdateVisitedLocationDTO struct {
 }
 
 func (u *UpdateVisitedLocationDTO) Validate() error {
-	var err = ErrInvalidParams
+	err := &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrInvalidInput,
+		Description:   "invalid visited location params",
+	}
 
 	switch {
 	case u.VisitedLocationPointID == nil || *u.VisitedLocationPointID <= 0:
@@ -61,7 +65,11 @@ type SearchVisitedLocationDTO struct {
 }
 
 func (s *SearchVisitedLocationDTO) Validate() error {
-	var err = ErrInvalidParams
+	err := &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrInvalidInput,
+		Description:   "validation error",
+	}
 	var defaultFrom, defaultSize = 0, 10
 
 	if s.From == nil {

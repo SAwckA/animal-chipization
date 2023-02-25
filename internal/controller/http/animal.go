@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 const animalIDParam = "animalId"
 
 type animalUsecase interface {
-	GetAnimal(animalID int) *domain.Animal
-	SearchAnimal(params *domain.AnimalSearchParams) *[]domain.Animal
+	GetAnimal(animalID int) (*domain.Animal, error)
+	SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error)
 	CreateAnimal(params domain.AnimalCreateParams) (*domain.Animal, error)
 	UpdateAnimal(animalID int, params domain.AnimalUpdateParams) (*domain.Animal, error)
 	DeleteAnimal(animalID int) error
@@ -48,7 +49,7 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 			h.searchAnimal,
 		)
 
-		animal.POST("/",
+		animal.POST("",
 			h.middleware.authMiddleware,
 			h.createAnimal,
 		)
@@ -70,7 +71,7 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 				h.addAnimalType,
 			)
 
-			types.PUT("/",
+			types.PUT("",
 				h.middleware.authMiddleware,
 				h.editAnimalType,
 			)
@@ -87,21 +88,33 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 func (h *AnimalHandler) getAnimal(c *gin.Context) {
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	animal := h.usecase.GetAnimal(animalID)
+	animal, err := h.usecase.GetAnimal(animalID)
 
-	if animal == nil {
-		newErrorResponse(c, http.StatusNotFound, "Animal not found", nil)
-		return
+	switch errors.Unwrap(err) {
+
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
+
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		c.JSON(http.StatusOK, animal.Response())
+
 	}
-
-	c.JSON(http.StatusOK, animal.Response())
 }
 
 func (h *AnimalHandler) searchAnimal(c *gin.Context) {
@@ -112,19 +125,35 @@ func (h *AnimalHandler) searchAnimal(c *gin.Context) {
 		return
 	}
 
-	animalsList := h.usecase.SearchAnimal(input)
+	animalsList, err := h.usecase.SearchAnimal(input)
 
-	if animalsList == nil {
-		c.JSON(http.StatusOK, nil)
-		return
+	switch errors.Unwrap(err) {
+
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
+
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
+	default:
+		if animalsList == nil {
+			c.JSON(http.StatusOK, nil)
+			return
+		}
+		resp := make([]map[string]interface{}, 0)
+
+		for _, v := range *animalsList {
+			resp = append(resp, v.Response())
+		}
+		c.JSON(http.StatusOK, resp)
 	}
-	var resp []map[string]interface{}
 
-	for _, v := range *animalsList {
-		resp = append(resp, v.Response())
-	}
-
-	c.JSON(http.StatusOK, resp)
 }
 
 func (h *AnimalHandler) createAnimal(c *gin.Context) {
@@ -137,25 +166,32 @@ func (h *AnimalHandler) createAnimal(c *gin.Context) {
 
 	animal, err := h.usecase.CreateAnimal(input)
 
-	switch {
-	case err == domain.ErrAnimalCreateParamsInvalid:
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-	case err == domain.ErrAnimalTypeNotFound || err == domain.ErrAccountNotFoundByID || err == domain.ErrLocationNotFoundByID:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
-	case err == domain.ErrAnimalTypeParamsDuplicate:
-		newErrorResponse(c, http.StatusConflict, err.Error(), nil)
-	case err != nil:
-		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
+	switch errors.Unwrap(err) {
+
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
+
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
+
 	default:
-		c.JSON(http.StatusOK, animal.Response())
+		logrus.Error(err)
+		c.JSON(http.StatusCreated, animal.Response())
 	}
+
 }
 
 func (h *AnimalHandler) updateAnimal(c *gin.Context) {
 
 	var input domain.AnimalUpdateParams
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), err)
@@ -169,15 +205,19 @@ func (h *AnimalHandler) updateAnimal(c *gin.Context) {
 
 	animal, err := h.usecase.UpdateAnimal(animalID, input)
 
-	switch {
-	case err == domain.ErrAnimalUpdateParamsInvalid:
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	switch errors.Unwrap(err) {
 
-	case err == domain.ErrAnimalNotFoundByID || err == domain.ErrAccountNotFoundByID || err == domain.ErrLocationNotFoundByID:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
 
-	case err != nil:
-		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
 
 	default:
 		c.JSON(http.StatusOK, animal.Response())
@@ -186,7 +226,7 @@ func (h *AnimalHandler) updateAnimal(c *gin.Context) {
 
 func (h *AnimalHandler) deleteAnimal(c *gin.Context) {
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
@@ -195,12 +235,19 @@ func (h *AnimalHandler) deleteAnimal(c *gin.Context) {
 
 	err = h.usecase.DeleteAnimal(animalID)
 
-	switch {
-	case err == domain.ErrAnimalNotFoundByID:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
+	switch errors.Unwrap(err) {
 
-	case err != nil:
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
+
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
 
 	default:
 		c.JSON(http.StatusOK, nil)
@@ -209,13 +256,13 @@ func (h *AnimalHandler) deleteAnimal(c *gin.Context) {
 
 func (h *AnimalHandler) addAnimalType(c *gin.Context) {
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	animalTypeID, err := validateID(c, typeParam)
+	animalTypeID, err := validateID(c.Copy(), typeParam)
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -223,26 +270,29 @@ func (h *AnimalHandler) addAnimalType(c *gin.Context) {
 
 	animal, err := h.usecase.AddAnimalType(animalID, animalTypeID)
 
-	switch {
-	case err == domain.ErrAnimalNotFoundByID || err == domain.ErrAnimalTypeNotFound:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
+	switch errors.Unwrap(err) {
 
-	case err == domain.ErrAnimalTypeParamsDuplicate:
-		newErrorResponse(c, http.StatusConflict, err.Error(), nil)
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
 
-	case err != nil:
-		newErrorResponse(c, http.StatusInternalServerError, err.Error(), nil)
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
 
 	default:
-		c.JSON(http.StatusOK, animal.Response())
+		c.JSON(http.StatusCreated, animal.Response())
 	}
-
 }
 
 func (h *AnimalHandler) editAnimalType(c *gin.Context) {
 	var input domain.AnimalEditTypeParams
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
@@ -255,19 +305,19 @@ func (h *AnimalHandler) editAnimalType(c *gin.Context) {
 
 	animal, err := h.usecase.EditAnimalType(animalID, input)
 
-	switch {
+	switch errors.Unwrap(err) {
 
-	case err == domain.ErrAnimalEditTypeParamsInvalid:
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
 
-	case err == domain.ErrAnimalNotFoundByID || err == domain.ErrAnimalTypeNotFound:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
 
-	case err == domain.ErrAnimalTypeParamsDuplicate:
-		newErrorResponse(c, http.StatusConflict, err.Error(), nil)
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
 
-	case err != nil:
-		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
+	case domain.ErrUnknown:
+		unreachableError(c, err)
 
 	default:
 		c.JSON(http.StatusOK, animal.Response())
@@ -277,13 +327,13 @@ func (h *AnimalHandler) editAnimalType(c *gin.Context) {
 
 func (h *AnimalHandler) deleteAnimalType(c *gin.Context) {
 
-	animalID, err := validateID(c, animalIDParam)
+	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	typeID, err := validateID(c, typeParam)
+	typeID, err := validateID(c.Copy(), typeParam)
 
 	if err != nil {
 		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
@@ -292,15 +342,19 @@ func (h *AnimalHandler) deleteAnimalType(c *gin.Context) {
 
 	animal, err := h.usecase.DeleteAnimalType(animalID, typeID)
 
-	switch {
-	case err == domain.ErrAnimalNotFoundByID || err == domain.ErrAnimalTypeNotFound:
-		newErrorResponse(c, http.StatusNotFound, err.Error(), nil)
+	switch errors.Unwrap(err) {
 
-	case err == domain.ErrAnimalTypeListEmpty:
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
 
-	case err != nil:
-		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrConflict:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrUnknown:
+		unreachableError(c, err)
 
 	default:
 		c.JSON(http.StatusOK, animal.Response())
@@ -308,6 +362,9 @@ func (h *AnimalHandler) deleteAnimalType(c *gin.Context) {
 
 }
 
+// FIXME:
+// УНИЧТОЖИТЬ
+// FIXME:
 func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error) {
 	var animalSearchParams domain.AnimalSearchParams
 
@@ -397,6 +454,10 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 		if err != nil {
 			return nil, errors.New("invalid query from")
 		}
+		if from < 0 {
+			return nil, errors.New("invalid from < 0")
+		}
+
 		animalSearchParams.From = from
 	}
 
@@ -407,6 +468,9 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 		size, err := strconv.Atoi(sizeQuery)
 		if err != nil {
 			return nil, errors.New("invalid query size")
+		}
+		if size <= 0 {
+			return nil, errors.New("invalide size <= 0")
 		}
 		animalSearchParams.Size = size
 	}

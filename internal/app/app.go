@@ -2,12 +2,17 @@ package app
 
 import (
 	"animal-chipization/internal/controller"
+
 	httpController "animal-chipization/internal/controller/http"
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
 	"animal-chipization/internal/usecase"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
+	"github.com/joho/godotenv"
 )
 
 func Run() error {
@@ -21,8 +26,9 @@ func Run() error {
 	// }
 
 	// mongoRepository := mongodb.NewMongoRepository(mongoClient)
+	_ = godotenv.Load()
 
-	psqlDB, err := repository.NewPostgresDB("localhost", "5432", "dev", "animal-chipization", "changeme", "disable")
+	psqlDB, err := repository.NewPostgresDB(os.Getenv("DB_HOST"), "5432", "dev", "animal-chipization", "changeme", "disable")
 
 	if err != nil {
 		return err
@@ -35,15 +41,16 @@ func Run() error {
 	visitedLocatoinRepository := psql.NewVisitedLocationRepository(psqlDB)
 
 	accountUsecase := usecase.NewAccountUsecase(accountRepository)
+	registerAccountUsecase := usecase.NewRegisterAccountUsecase(accountRepository)
 	locationUsecase := usecase.NewLocationUsecase(locationRepository)
 	animalTypeUsecase := usecase.NewAnimalTypeUsecase(animalTypeRepository)
 	animalUsecase := usecase.NewAnimalUsecase(animalRepository, animalTypeRepository)
 	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocatoinRepository, locationRepository, animalRepository)
 
-	middlerware := httpController.NewMiddleware(accountUsecase)
+	middlerware := httpController.NewMiddleware(registerAccountUsecase)
 
 	accountHandler := httpController.NewAccountHandler(accountUsecase, middlerware)
-	registerHandler := httpController.NewRegisterHandler(accountUsecase, middlerware)
+	registerHandler := httpController.NewRegisterHandler(registerAccountUsecase, middlerware)
 	locationHandler := httpController.NewLocationHandler(locationUsecase, middlerware)
 	animalTypeHandler := httpController.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
 	animalHandler := httpController.NewAnimalHandler(animalUsecase, middlerware)
@@ -57,6 +64,11 @@ func Run() error {
 	router = animalTypeHandler.InitRoutes(router)
 	router = animalHandler.InitRoutes(router)
 	router = visitedLocationHandler.InitRoutes(router)
+
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("exclude_whitespace", httpController.ExcludeWhitespace)
+		// v.RegisterValidation("default", httpController.DefaultValue)
+	}
 
 	server := controller.NewHTTPServer("8000", router)
 

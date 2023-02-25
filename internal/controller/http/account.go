@@ -2,18 +2,17 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
+	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 type accountUsecase interface {
-	GetAccountByID(id int32) (*domain.Account, error)
-	SearchAccount(firstName, lastName, email string, from, size int) []*domain.AccountResponse
-	FullUpdateAccount(currentAccount *domain.Account, newAccount *domain.Account) (*domain.AccountResponse, error)
-	DeleteAccount(accoundID int) error
+	Get(id int) (*domain.Account, error)
+	Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error)
+	Update(old *domain.Account, newAccount domain.UpdateAccountDTO) (*domain.Account, error)
+	Delete(executor *domain.Account, id int) error
 }
 
 type AccountHandler struct {
@@ -36,6 +35,7 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	account := router.Group("/accounts")
 	{
 		account.GET("/:accountId",
+			h.middleware.ckeckAuthHeaderMiddleware,
 			h.getAccountByID,
 		)
 
@@ -55,163 +55,211 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	return router
 }
 
-func (h *AccountHandler) getAccountByID(ctx *gin.Context) {
-	accountIDParam := ctx.Param("accountId")
+// API 1: Получение информации об аккаунте пользователя
+// GET - /accounts/{accountId}
+// 	{accountId}: "int"	// Идентификатор аккаунта пользователя
+// 	- request
+// 		Body {
+// 			empty
+// 		}
+//
+// 	- response
+// 		Body {
+//			"id": "int",		// Идентификатор аккаунта пользователя
+//			"firstName": "string",	// Имя пользователя
+// 			"lastName": "string",	// Фамилия пользователя
+// 			"email": "string"		// Адрес электронной почты
+// 		}
+func (h *AccountHandler) getAccountByID(c *gin.Context) {
 
-	accountID, err := strconv.ParseInt(accountIDParam, 10, 32)
+	var input domain.AccountID
 
-	if err != nil {
-		newErrorResponse(ctx, http.StatusBadRequest, "Invalid id", nil)
+	if err := c.BindUri(&input); err != nil {
+		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	account, err := h.usecase.GetAccountByID(int32(accountID))
+	account, err := h.usecase.Get(input.ID)
 
-	if err != nil {
-		newErrorResponse(ctx, http.StatusNotFound, "Account not found", nil)
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case nil:
+		c.JSON(http.StatusOK, account.Response())
+
+	default:
+		unreachableError(c, err)
+	}
+
+}
+
+// API 2: Поиск аккаунтов пользователей по параметрам
+// 	GET - /accounts/search
+// 		?firstName={firstName}
+// 		&lastName={lastName}
+// 		&email={email}
+// 		&from={from}
+// 		&size={size}
+//
+// 		{firstName}: "string",	// Имя пользователя, может использоваться только часть имени без учета регистра, если null, не участвует в фильтрации
+// 		{firstName}: "string",	// Фамилия пользователя, может использоваться только часть фамилии без учета регистра, если null, не участвует в фильтрации
+// 		{email}: "string",		// Адрес электронной почты, может использоваться только часть адреса электронной почты без учета регистра, если null, не участвует в фильтрации
+// 		{from}: "int"		// Количество элементов, которое необходимо пропустить для формирования страницы с результатами (по умолчанию 0)
+// 		{size}: "int"		// Количество элементов на странице (по умолчанию 10)
+// 	- request
+// 	Body  {
+// 			empty
+// 		}
+//
+// 	- response
+// 	Body [
+// 		{
+// 			“id”: "int",		// Идентификатор аккаунта пользователя
+// 			"firstName": "string",	// Имя пользователя
+// 			"lastName": "string",	// Фамилия пользователя
+// 			"email": "string"	// Адрес электронной почты
+// 		}
+// 	]
+func (h *AccountHandler) searchAccount(c *gin.Context) {
+
+	var input domain.SearchAccountDTO
+
+	if err := c.ShouldBindQuery(&input); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
 
-	ctx.JSON(http.StatusOK, map[string]interface{}{
-		"id":        account.ID,
-		"firstName": account.FirstName,
-		"lastName":  account.LastName,
-		"email":     account.Email,
-	})
-}
-
-func (h *AccountHandler) searchAccount(ctx *gin.Context) {
-
-	var err error
-
-	firstName := ctx.Query("firstName")
-	lastName := ctx.Query("lastName")
-	email := ctx.Query("email")
-
-	var from int = 0
-
-	fromString := ctx.Query("from")
-	if fromString != "" {
-		from, err = strconv.Atoi(fromString)
-
-		if err != nil || from < 0 {
-			newErrorResponse(ctx, http.StatusBadRequest, "invalid from param", err)
-			return
-		}
-	} else {
-		from = 0
+	size, err := GetIntQuery(c.Copy(), "size", domain.AccountDefaultSize)
+	if err != nil {
+		badRequest(c, err.Error())
+		return
 	}
 
-	var size int = 10
-
-	sizeString := ctx.Query("size")
-
-	if sizeString != "" {
-		size, err = strconv.Atoi(sizeString)
-		if err != nil || size <= 0 {
-			newErrorResponse(ctx, http.StatusBadRequest, "invalid size param", err)
-			return
-		}
-	} else {
-		size = 10
+	from, err := GetIntQuery(c.Copy(), "from", domain.AccountDefaultFrom)
+	if err != nil {
+		badRequest(c, err.Error())
+		return
 	}
 
-	logrus.Warnln(firstName, lastName, email, from, size)
-	result := h.usecase.SearchAccount(firstName, lastName, email, from, size)
+	result, err := h.usecase.Search(input, size, from)
 
-	ctx.JSON(http.StatusOK, result)
+	switch errors.Unwrap(err) {
+	case domain.ErrInvalidInput:
+		badRequest(c, err.Error())
+
+	case nil:
+		resp := make([]map[string]interface{}, 0)
+
+		if result != nil {
+			for _, v := range *result {
+				resp = append(resp, v.Response())
+			}
+		}
+
+		c.JSON(http.StatusOK, resp)
+	default:
+		unreachableError(c, err)
+	}
 }
 
+// API 3: Обновление данных аккаунта пользователя
+// 	PUT - /accounts/{accountId}
+// 		{accountId}: "int"	// Идентификатор аккаунта пользователя
+//
+// - request
+// 	Body {
+// 		"firstName": "string",	// Новое имя пользователя
+// 		"lastName": "string",	// Новая фамилия пользователя
+// 		"email": "string",		// Новый адрес электронной почты
+// 		"password": "string"    	// Пароль от аккаунта
+// 	}
+//
+// - response
+// 	Body {
+// 		"id": "int",		// Идентификатор аккаунта пользователя
+// 		"firstName": "string",	// Новое имя пользователя
+// 		"lastName": "string",	// Новая фамилия пользователя
+// 		"email": "string"			// Новый адрес электронной почты
+// 	}
 func (h *AccountHandler) updateAccount(c *gin.Context) {
-	accountIDString := c.Param("accountId")
 
-	var newAccount *domain.Account
-
-	if err := c.BindJSON(&newAccount); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", nil)
+	var accountID domain.AccountID
+	if err := c.BindUri(&accountID); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
 
-	accountID, err := strconv.Atoi(accountIDString)
+	var input domain.UpdateAccountDTO
 
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid accountId", nil)
+	if err := c.BindJSON(&input); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
+
+	input.ID = accountID.ID
 
 	currentAccount, _ := c.Get(accountCtx)
 
-	if currentAccount.(*domain.Account).ID != int32(accountID) {
-		newErrorResponse(c, http.StatusForbidden, "You are not owner or account not found", nil)
-		return
-	}
+	result, err := h.usecase.Update(currentAccount.(*domain.Account), input)
 
-	if newAccount.Email == "" || newAccount.Email == "null" || !validateEmail(newAccount.Email) || contentsOnlySpaces(newAccount.Email) {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid email", nil)
-		return
-	}
-	if newAccount.FirstName == "" || newAccount.FirstName == "null" || contentsOnlySpaces(newAccount.FirstName) {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid firstName", nil)
-		return
-	}
-	if newAccount.LastName == "" || newAccount.LastName == "null" || contentsOnlySpaces(newAccount.LastName) {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid lastName", nil)
-		return
-	}
-	if newAccount.Password == "" || newAccount.Password == "null" || contentsOnlySpaces(newAccount.Password) {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid password", nil)
-		return
-	}
+	switch errors.Unwrap(err) {
+	case domain.ErrBadDatabaseOut:
+		conflictResponse(c, err.Error())
 
-	result, err := h.usecase.FullUpdateAccount(currentAccount.(*domain.Account), newAccount)
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
 
-	if err != nil {
-		newErrorResponse(c, http.StatusConflict, "This email already used", nil)
-		return
+	case domain.ErrForbidden:
+		forbiddenResponse(c, err.Error())
+
+	case nil:
+		c.JSON(http.StatusOK, result.Response())
+
+	default:
+		unreachableError(c, err)
 	}
-
-	c.JSON(http.StatusOK, result)
 }
 
-// contentsOnlySpaces проверяет состоит ли строка только из пробелов
-func contentsOnlySpaces(s string) bool {
-	for _, c := range s {
-		if c != ' ' {
-			return false
-		}
-	}
-	return true
-}
-
+// API 4: Удаление аккаунта пользователя
+// 	DELETE - /accounts/{accountId}
+// 		{accountId}: "int"	// Идентификатор аккаунта пользователя
+//
+// - request
+// 	Body {
+// 		empty
+// 	}
+//
+// - response
+// 	Body {
+// 		empty
+// 	}
 func (h *AccountHandler) deleteAccount(c *gin.Context) {
-	accountIDString := c.Param("accountId")
-	if accountIDString == "" || accountIDString == "null" {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid accountId", nil)
-		return
-	}
 
-	accountID, err := strconv.Atoi(accountIDString)
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid accountId", nil)
-		return
-	}
-
-	if accountID <= 0 {
-		newErrorResponse(c, http.StatusBadRequest, "invalid accountId", nil)
+	var accountID domain.AccountID
+	if err := c.BindUri(&accountID); err != nil {
+		badRequest(c, err.Error())
 		return
 	}
 
 	account, _ := c.Get(accountCtx)
 
-	if accountID != int(account.(*domain.Account).ID) {
-		newErrorResponse(c, http.StatusForbidden, "You are not owner or account not found", nil)
-		return
-	}
+	err := h.usecase.Delete(account.(*domain.Account), accountID.ID)
 
-	if err = h.usecase.DeleteAccount(accountID); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Account linked with animal", nil)
-		return
-	}
+	switch errors.Unwrap(err) {
+	case domain.ErrBadDatabaseOut:
+		badRequest(c, err.Error())
 
-	c.JSON(http.StatusOK, nil)
+	case domain.ErrForbidden:
+		forbiddenResponse(c, err.Error())
+
+	case domain.ErrNotFound:
+		forbiddenResponse(c, err.Error())
+
+	case nil:
+		c.JSON(http.StatusOK, nil)
+
+	default:
+		unreachableError(c, err)
+	}
 }

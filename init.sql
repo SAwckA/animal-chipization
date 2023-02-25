@@ -1,23 +1,26 @@
 create table public.account (
     id serial primary key,
-    firstName varchar(50),
-    lastName varchar(50),
-    email varchar(50) unique,
+    firstName varchar(255),
+    lastName varchar(255),
+    email varchar(255) unique,
     password varchar(255)
 );
 
 create table public.location (
     id serial primary key,
     latitude double precision,
-    longitude double precision
+    longitude double precision,
+
+    constraint unique_location_points unique(latitude, longitude)
 
     -- FIXME: Unique lat + long
 );
 
 create table public.animal_type (
     id bigserial primary key,
-    type varchar(255)
+    type varchar(255),
 
+    constraint unique_type unique(type)
     -- FIXME: Unique type
 );
 

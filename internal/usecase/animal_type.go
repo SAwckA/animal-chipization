@@ -3,10 +3,10 @@ package usecase
 import "animal-chipization/internal/domain"
 
 type animalTypeRepository interface {
-	GetAnimalType(typeID int) *domain.AnimalType
-	CreateAnimalType(typeName string) (int, error)
-	UpdateAnimalType(typeID int, typeName string) (*domain.AnimalType, error)
-	DeleteAnimalType(typeID int) error
+	Get(id int) (*domain.AnimalType, error)
+	Create(typeName string) (int, error)
+	Update(id int, typeName string) error
+	Delete(id int) error
 }
 
 type AnimalTypeUsecase struct {
@@ -17,13 +17,14 @@ func NewAnimalTypeUsecase(repo animalTypeRepository) *AnimalTypeUsecase {
 	return &AnimalTypeUsecase{repo: repo}
 }
 
-func (u *AnimalTypeUsecase) GetType(typeID int) *domain.AnimalType {
-	return u.repo.GetAnimalType(typeID)
+func (u *AnimalTypeUsecase) Get(id int) (*domain.AnimalType, error) {
+	return u.repo.Get(id)
 }
 
-func (u *AnimalTypeUsecase) CreateType(typeName string) (*domain.AnimalType, error) {
+func (u *AnimalTypeUsecase) Create(typeName string) (*domain.AnimalType, error) {
 	var animalType domain.AnimalType
-	typeID, err := u.repo.CreateAnimalType(typeName)
+
+	typeID, err := u.repo.Create(typeName)
 
 	if err != nil {
 		return nil, err
@@ -35,10 +36,14 @@ func (u *AnimalTypeUsecase) CreateType(typeName string) (*domain.AnimalType, err
 	return &animalType, nil
 }
 
-func (u *AnimalTypeUsecase) UpdateType(typeID int, typeName string) (*domain.AnimalType, error) {
-	return u.repo.UpdateAnimalType(typeID, typeName)
+func (u *AnimalTypeUsecase) Update(id int, typeName string) (*domain.AnimalType, error) {
+	err := u.repo.Update(id, typeName)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.AnimalType{ID: id, Type: typeName}, nil
 }
 
-func (u *AnimalTypeUsecase) DeleteType(typeID int) error {
-	return u.repo.DeleteAnimalType(typeID)
+func (u *AnimalTypeUsecase) Delete(id int) error {
+	return u.repo.Delete(id)
 }

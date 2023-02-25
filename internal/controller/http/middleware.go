@@ -24,6 +24,8 @@ func NewMiddleware(usecase middlewareUsecase) *Middleware {
 	return &Middleware{usecase: usecase}
 }
 
+// blockAuthHeader Обработчик аутентификации, отвечает за аутентификацию
+// 		*ЗАПРЕЩАЕТ для авторизованных пользователей
 func (m *Middleware) blockAuthHeader(ctx *gin.Context) {
 	if authHeader := ctx.GetHeader("Authorization"); len(authHeader) > 0 {
 		newErrorResponse(ctx, http.StatusForbidden, "Forbidden for authorized users", nil)
@@ -32,6 +34,8 @@ func (m *Middleware) blockAuthHeader(ctx *gin.Context) {
 	ctx.Next()
 }
 
+// ckeckAuthHeaderMiddleware Обработчик аутентификации, отвечает за аутентификацию
+// 		*НЕ Обязательная аутентификация
 func (m *Middleware) ckeckAuthHeaderMiddleware(ctx *gin.Context) {
 	if authHeader := ctx.GetHeader("Authorization"); len(authHeader) > 0 {
 		m.authMiddleware(ctx)
@@ -40,13 +44,9 @@ func (m *Middleware) ckeckAuthHeaderMiddleware(ctx *gin.Context) {
 	ctx.Next()
 }
 
+// authMiddleware Обработчик аутентификации, отвечает за аутентификацию
+// 		*Обязательная аутентификация
 func (m *Middleware) authMiddleware(ctx *gin.Context) {
-	// TODO: Авторизация:
-
-	// При отправке запросов на первом и втором уровнях требуется авторизация, в header
-	// “Authorization” записывается слово “Basic”, далее через пробел записывается логин(email) и
-	// пароль зарегистрированного аккаунта после кодировки Base64 в формате login:password.
-
 	authHeader := ctx.GetHeader("Authorization")
 
 	token, err := validateHeader(authHeader)

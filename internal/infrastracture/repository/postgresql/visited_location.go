@@ -18,7 +18,7 @@ func NewVisitedLocationRepository(db *sqlx.DB) *VisitedLocationRepository {
 	}
 }
 
-func (r *VisitedLocationRepository) Get(id int) *domain.VisitedLocation {
+func (r *VisitedLocationRepository) Get(id int) (*domain.VisitedLocation, error) {
 	query := fmt.Sprintf(`
 		select id, animal_id, location_id, date_time_of_visited_location_point from %s
 		where id = $1
@@ -27,9 +27,13 @@ func (r *VisitedLocationRepository) Get(id int) *domain.VisitedLocation {
 	var location domain.VisitedLocation
 	err := r.db.QueryRow(query, id).Scan(&location.ID, &location.AnimalID, &location.LocationPointID, &location.DateTime)
 	if err != nil {
-		return nil
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "visited location not found by id",
+		}
 	}
-	return &location
+	return &location, nil
 }
 
 func (r *VisitedLocationRepository) Save(animalID int, location domain.VisitedLocation) (int, error) {
@@ -44,7 +48,11 @@ func (r *VisitedLocationRepository) Save(animalID int, location domain.VisitedLo
 	err := r.db.Get(&locationID, query, animalID, location.LocationPointID, location.DateTime)
 
 	if err != nil {
-		return 0, err
+		return 0, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error during save visited location point",
+		}
 	}
 
 	return locationID, nil
@@ -59,11 +67,19 @@ func (r *VisitedLocationRepository) Update(location domain.VisitedLocation) erro
 
 	res, err := r.db.Exec(query, location.LocationPointID, location.ID)
 	if err != nil {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error during update visited location point",
+		}
 	}
 
 	if aff, err := res.RowsAffected(); err != nil || aff != 1 {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "nothing updated",
+		}
 	}
 	return nil
 }
@@ -80,7 +96,11 @@ func (r *VisitedLocationRepository) Delete(id int) error {
 	}
 
 	if aff, err := res.RowsAffected(); err != nil || aff != 1 {
-		return domain.ErrLocationNotFoundByID
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "visited location not found by id",
+		}
 	}
 
 	return nil
@@ -101,7 +121,7 @@ func (r *VisitedLocationRepository) Search(animalID int, params domain.SearchVis
 	}
 
 	if params.EndDateTime != nil {
-		args = append(args, fmt.Sprintf("date_time_of_visited_location_point > $%d", placeholder))
+		args = append(args, fmt.Sprintf("date_time_of_visited_location_point < $%d", placeholder))
 		data = append(data, params.EndDateTime)
 		placeholder++
 	}
@@ -119,7 +139,11 @@ func (r *VisitedLocationRepository) Search(animalID int, params domain.SearchVis
 
 	rows, err := r.db.Query(query, data...)
 	if err != nil {
-		return nil, err
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error during search visited location point",
+		}
 	}
 
 	var res []domain.VisitedLocation

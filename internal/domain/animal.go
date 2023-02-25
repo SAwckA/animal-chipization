@@ -50,7 +50,11 @@ func (a *Animal) FindVisitedLocaionPos(id int) (int, error) {
 			return i, nil
 		}
 	}
-	return 0, ErrAnimalVisitLocationNotFound
+	return 0, &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrNotFound,
+		Description:   "animal not visited location",
+	}
 }
 
 func (a *Animal) ReplaceAnimalType(oldTypeID, newTypeID int) {
@@ -82,7 +86,7 @@ func (a *Animal) RemoveAnimalType(typeID int) {
 }
 
 func (a *Animal) Response() map[string]interface{} {
-	var visitedLocations []int
+	var visitedLocations = make([]int, 0)
 
 	for _, v := range a.VisitedLocations {
 		visitedLocations = append(visitedLocations, v.ID)
@@ -166,23 +170,33 @@ type AnimalUpdateParams struct {
 }
 
 func (p *AnimalUpdateParams) Validate() error {
-	var err = ErrAnimalCreateParamsInvalid
+	err := &ApplicationError{
+		OriginalError: ErrInvalidInput,
+		SimplifiedErr: ErrInvalidInput,
+	}
 
 	switch {
 
 	case p.Weight == nil || *p.Weight <= 0:
+		err.Description = "invalid weight"
 		return err
 	case p.Lenght == nil || *p.Lenght <= 0:
+		err.Description = "invalid lenght"
 		return err
 	case p.Height == nil || *p.Height <= 0:
+		err.Description = "invalid height"
 		return err
 	case p.Gender == nil || (*p.Gender != "MALE" && *p.Gender != "FEMALE" && *p.Gender != "OTHER"):
+		err.Description = "invalid gender"
 		return err
 	case p.LifeStatus == nil || (*p.LifeStatus != "ALIVE" && *p.LifeStatus != "DEAD"):
+		err.Description = "invalid lifestatus"
 		return err
 	case p.ChipperID == nil || *p.ChipperID <= 0:
+		err.Description = "invalid chipperid"
 		return err
 	case p.ChippingLocationID == nil || *p.ChippingLocationID <= 0:
+		err.Description = "invalid chippinglocationid"
 		return err
 
 	default:
@@ -196,12 +210,18 @@ type AnimalEditTypeParams struct {
 }
 
 func (p *AnimalEditTypeParams) Validate() error {
-	var err = ErrAnimalEditTypeParamsInvalid
+	err := &ApplicationError{
+		OriginalError: ErrInvalidParams,
+		SimplifiedErr: ErrInvalidInput,
+	}
+
 	switch {
 	case p.OldTypeID == nil || *p.OldTypeID <= 0:
+		err.Description = "invalid OldtypeID"
 		return err
 
 	case p.NewTypeID == nil || *p.NewTypeID <= 0:
+		err.Description = "invalid NewTypeID"
 		return err
 
 	default:

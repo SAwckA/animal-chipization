@@ -24,7 +24,7 @@ func NewAnimalRepository(db *sqlx.DB) *AnimalRepository {
 	return &AnimalRepository{db: db}
 }
 
-func (r *AnimalRepository) GetAnimal(animalID int) *domain.Animal {
+func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
 
 	query := fmt.Sprintf(`
 	with locations as (
@@ -85,7 +85,11 @@ func (r *AnimalRepository) GetAnimal(animalID int) *domain.Animal {
 		&typesString,
 		&visitedLocationString,
 	); err != nil {
-		return nil
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "animal not found by id",
+		}
 	}
 
 	if typesString != nil {
@@ -100,10 +104,10 @@ func (r *AnimalRepository) GetAnimal(animalID int) *domain.Animal {
 		animal.VisitedLocations = make([]domain.VisitedLocation, 0)
 	}
 
-	return &animal
+	return &animal, nil
 }
 
-func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]domain.Animal {
+func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error) {
 
 	var searchParams []string
 	var searchData []interface{}
@@ -198,7 +202,11 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 	rows, err := r.db.Query(query, searchData...)
 
 	if err != nil {
-		return nil
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "invalid query",
+		}
 	}
 
 	var res []domain.Animal
@@ -221,7 +229,11 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 			&typesString,
 			&visitedLocationsString,
 		); err != nil {
-			return nil
+			return nil, &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "0 animals found in search",
+			}
 		}
 
 		if typesString != nil {
@@ -238,7 +250,7 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) *[]do
 
 		res = append(res, animal)
 	}
-	return &res
+	return &res, nil
 }
 
 func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
@@ -288,14 +300,26 @@ func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
 	var id int
 	if err := row.Scan(&id); err != nil {
 		if strings.Contains(err.Error(), "animal_chipperid_fkey") {
-			return 0, domain.ErrAccountNotFoundByID
+			return 0, &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "Account not found by id",
+			}
 		}
 
 		if strings.Contains(err.Error(), "animal_chippinglocationid_fkey") {
-			return 0, domain.ErrLocationNotFoundByID
+			return 0, &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "Location not found by id",
+			}
 		}
 
-		return 0, err
+		return 0, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error",
+		}
 	}
 
 	baseQuery := fmt.Sprintf(`
@@ -315,9 +339,17 @@ func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "animal_types_list_type_id_fkey") {
-			return 0, domain.ErrAnimalTypeNotFound
+			return 0, &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "Animal type not found by id",
+			}
 		}
-		return 0, err
+		return 0, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error",
+		}
 	}
 	return id, nil
 }
@@ -358,14 +390,26 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "animal_chipperid_fkey") {
-			return domain.ErrAccountNotFoundByID
+			return &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "Account not found by id",
+			}
 		}
 
 		if strings.Contains(err.Error(), "animal_chippinglocationid_fkey") {
-			return domain.ErrLocationNotFoundByID
+			return &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrNotFound,
+				Description:   "Location not found by id",
+			}
 		}
 
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "unknown error",
+		}
 	}
 
 	affected, err := res.RowsAffected()
@@ -375,7 +419,11 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 	}
 
 	if affected != 1 {
-		return domain.ErrAnimalNotFoundByID
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "Animal not found by id",
+		}
 	}
 
 	return nil
@@ -388,11 +436,19 @@ func (r *AnimalRepository) DeleteAnimal(animalID int) error {
 	res, err := r.db.Exec(query, animalID)
 
 	if err != nil {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrUnknown,
+			Description:   "Account not found by id",
+		}
 	}
 
 	if affected, err := res.RowsAffected(); err != nil || affected != 1 {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "Animal not found by id",
+		}
 	}
 
 	return nil
@@ -408,7 +464,11 @@ func (r *AnimalRepository) AttachTypeAnimal(animalID, typeID int) error {
 	_, err := r.db.Exec(query, animalID, typeID)
 
 	if err != nil {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrAlreadyExist,
+			Description:   "animal already have this type",
+		}
 	}
 
 	return nil
@@ -427,7 +487,11 @@ func (r *AnimalRepository) EditAnimalType(animalID, oldTypeID, newTypeID int) er
 	_, err := r.db.Exec(query, newTypeID, animalID, oldTypeID)
 
 	if err != nil {
-		return err
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrAlreadyExist,
+			Description:   "animal already have this type",
+		}
 	}
 
 	return nil
@@ -445,5 +509,12 @@ func (r *AnimalRepository) DeleteAnimalType(animalID, typeID int) error {
 
 	_, err := r.db.Exec(query, animalID, typeID)
 
-	return err
+	if err != nil {
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrAlreadyExist,
+			Description:   "animal already have this type",
+		}
+	}
+	return nil
 }
