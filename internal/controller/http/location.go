@@ -2,17 +2,19 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"animal-chipization/internal/errors"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
+const pointIDParam = "pointId"
+
 type locationUsecase interface {
 	CreateLocation(lat, lon float64) (*domain.Location, error)
-	GetLocation(locationID int) *domain.Location
-	UpdateLocation(location *domain.Location) error
+	GetLocation(locationID int) (*domain.Location, error)
+	UpdateLocation(locationID int, location *domain.Location) (*domain.Location, error)
 	DeleteLocation(locationID int) error
 }
 
@@ -38,7 +40,7 @@ func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 			h.middleware.ckeckAuthHeaderMiddleware,
 			h.getLocationPoint,
 		)
-		locations.POST("/",
+		locations.POST("",
 			h.middleware.authMiddleware,
 			h.createLocation,
 		)
@@ -76,57 +78,53 @@ func (h *LocationHandler) getLocationPoint(c *gin.Context) {
 		return
 	}
 
-	location := h.usecase.GetLocation(pointID)
+	location, err := h.usecase.GetLocation(pointID)
 
-	if location == nil {
-		newErrorResponse(c, http.StatusNotFound, "Location not found", nil)
-		return
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	default:
+		c.JSON(http.StatusOK, location)
 	}
-
-	c.JSON(http.StatusOK, location)
 }
 
 func (h *LocationHandler) createLocation(c *gin.Context) {
 	var newLocation *domain.Location
 
 	if err := c.BindJSON(&newLocation); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", nil)
+		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", err)
 		return
 	}
 
-	if newLocation.Latitude < -90 || newLocation.Latitude > 90 || newLocation.Longitude < -180 || newLocation.Longitude > 180 {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", nil)
-		return
+	location, err := h.usecase.CreateLocation(*newLocation.Latitude, *newLocation.Longitude)
+
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	default:
+		c.JSON(http.StatusCreated, location)
 	}
-
-	location, err := h.usecase.CreateLocation(newLocation.Latitude, newLocation.Longitude)
-
-	if err != nil {
-		newErrorResponse(c, http.StatusConflict, "Location with this point already exists", nil)
-		return
-	}
-
-	c.JSON(http.StatusOK, location)
 }
 
 func (h *LocationHandler) updateLocation(c *gin.Context) {
 
-	pointIDString := c.Param("pointId")
-
-	if pointIDString == "null" || pointIDString == "" {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	pointID, err := strconv.Atoi(pointIDString)
-
+	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	if pointID <= 0 {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
+		badRequest(c, err.Error())
 		return
 	}
 
@@ -136,58 +134,46 @@ func (h *LocationHandler) updateLocation(c *gin.Context) {
 		return
 	}
 
-	newLocation.ID = pointID
+	newLocation, err = h.usecase.UpdateLocation(pointID, newLocation)
 
-	if newLocation.Latitude < -90 || newLocation.Latitude > 90 || newLocation.Longitude < -180 || newLocation.Longitude > 180 || newLocation.Latitude == 0 || newLocation.Longitude == 0 {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", nil)
-		return
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	default:
+		c.JSON(http.StatusOK, newLocation)
 	}
-
-	err = h.usecase.UpdateLocation(newLocation)
-
-	if err == errors.ErrNotFound {
-		newErrorResponse(c, http.StatusNotFound, "Location at this id not found", nil)
-		return
-	}
-
-	if err == errors.ErrAlreadyExist {
-		newErrorResponse(c, http.StatusConflict, "Location with this latitude and longitude already exist", nil)
-		return
-	}
-
-	c.JSON(http.StatusOK, newLocation)
 }
 
 func (h *LocationHandler) deleteLocation(c *gin.Context) {
 
-	pointIDString := c.Param("pointId")
-
-	if pointIDString == "null" || pointIDString == "" {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	pointID, err := strconv.Atoi(pointIDString)
+	pointID, err := validateID(c.Copy(), pointIDParam)
 
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	if pointID <= 0 {
 		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
 		return
 	}
 
 	err = h.usecase.DeleteLocation(pointID)
 
-	if err == errors.ErrNotFound {
-		newErrorResponse(c, http.StatusNotFound, "Locaton not found", nil)
-		return
+	switch errors.Unwrap(err) {
+	case domain.ErrNotFound:
+		notFoundResponse(c, err.Error())
+
+	case domain.ErrAlreadyExist:
+		conflictResponse(c, err.Error())
+
+	case domain.ErrLinked:
+		badRequest(c, err.Error())
+
+	default:
+		c.JSON(http.StatusOK, nil)
 	}
 
-	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Location linked with animal", nil)
-		return
-	}
 }

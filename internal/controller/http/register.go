@@ -2,14 +2,14 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
+	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 type registerUsecase interface {
-	CreateUser(firstName, lastName, email, password string) (*domain.Account, error)
+	Register(params domain.RegistrationDTO) (*domain.Account, error)
 }
 
 type RegisterHandler struct {
@@ -31,53 +31,22 @@ func (h *RegisterHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	return router
 }
 
-func (h *RegisterHandler) CreateAccount(ctx *gin.Context) {
-	firstName := ctx.Query("firstName")
-	lastName := ctx.Query("lastName")
-	email := ctx.Query("email")
-	password := ctx.Query("password")
+func (h *RegisterHandler) CreateAccount(c *gin.Context) {
+	var input domain.RegistrationDTO
 
-	if len(firstName) < 1 || strings.Contains(firstName, " ") {
-		newErrorResponse(ctx, http.StatusBadRequest, "Invalid input", nil)
+	if err := c.BindJSON(&input); err != nil {
+		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
 
-	if len(lastName) < 1 || strings.Contains(lastName, " ") {
-		newErrorResponse(ctx, http.StatusBadRequest, "Invalid input", nil)
-		return
+	account, err := h.usecase.Register(input)
+
+	switch {
+	case errors.Unwrap(err) == domain.ErrAlreadyExist:
+		newErrorResponse(c, http.StatusConflict, err.Error(), nil)
+	case err != nil:
+		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
+	default:
+		c.JSON(http.StatusCreated, account.Response())
 	}
-
-	if len(email) < 1 || strings.Contains(email, " ") || !validateEmail(email) {
-		newErrorResponse(ctx, http.StatusBadRequest, "Invalid input", nil)
-		return
-	}
-
-	if len(password) < 1 || strings.Contains(password, " ") {
-		newErrorResponse(ctx, http.StatusBadRequest, "Invalid input", nil)
-		return
-	}
-
-	account, err := h.usecase.CreateUser(firstName, lastName, email, password)
-
-	if err != nil {
-		// FIXME: Обработка ошибки индекса email
-		newErrorResponse(ctx, http.StatusConflict, "User with this email exist", err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, map[string]interface{}{
-		"id":        account.ID,
-		"firstName": account.FirstName,
-		"lastName":  account.LastName,
-		"email":     account.Email,
-	})
-
-}
-
-func validateEmail(email string) bool {
-	// FIXME: Валидация по regex
-	if strings.Contains(email, "@") && strings.Contains(email, ".") {
-		return true
-	}
-	return false
 }

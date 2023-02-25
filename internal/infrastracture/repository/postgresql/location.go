@@ -2,7 +2,6 @@ package psql
 
 import (
 	"animal-chipization/internal/domain"
-	"animal-chipization/internal/errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -29,13 +28,17 @@ func (r *LocationRepository) CreateLocation(lat, lon float64) (int, error) {
 
 	var locationID int
 	if err := row.Scan(&locationID); err != nil {
-		return 0, errors.ErrAlreadyExist
+		return 0, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrAlreadyExist,
+			Description:   "location already exist",
+		}
 	}
 
 	return locationID, nil
 }
 
-func (r *LocationRepository) GetLocation(locationID int) *domain.Location {
+func (r *LocationRepository) GetLocation(locationID int) (*domain.Location, error) {
 	query := fmt.Sprintf(`
 	select id, latitude, longitude from %s where id=$1
 	`, locationTable)
@@ -45,10 +48,14 @@ func (r *LocationRepository) GetLocation(locationID int) *domain.Location {
 	err := row.Scan(&location.ID, &location.Latitude, &location.Longitude)
 
 	if err != nil {
-		return nil
+		return nil, &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "location not found by id",
+		}
 	}
 
-	return &location
+	return &location, nil
 }
 
 func (r *LocationRepository) UpdateLocation(location *domain.Location) error {
@@ -63,11 +70,19 @@ func (r *LocationRepository) UpdateLocation(location *domain.Location) error {
 	result, err := r.db.Exec(query, location.Latitude, location.Longitude, location.ID)
 
 	if err != nil {
-		return errors.ErrAlreadyExist
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrAlreadyExist,
+			Description:   "location already exist",
+		}
 	}
 
 	if affected, _ := result.RowsAffected(); affected != 1 {
-		return errors.ErrNotFound
+		return &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "location not found by id",
+		}
 	}
 
 	return nil
@@ -83,13 +98,21 @@ func (r *LocationRepository) DeleteLocation(locationID int) error {
 	result, err := r.db.Exec(query, locationID)
 
 	if err != nil {
-		return errors.ErrLinked
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrLinked,
+			Description:   "location linked with animal visited location",
+		}
 	}
 
 	affected, err := result.RowsAffected()
 
 	if affected == 0 {
-		return errors.ErrNotFound
+		return &domain.ApplicationError{
+			OriginalError: err,
+			SimplifiedErr: domain.ErrNotFound,
+			Description:   "location not found by id",
+		}
 	}
 
 	return err

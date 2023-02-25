@@ -2,16 +2,13 @@ package usecase
 
 import (
 	"animal-chipization/internal/domain"
-	"errors"
 )
 
 type accountRepository interface {
-	InsertAccount(account *domain.Account) (*domain.Account, error)
-	GetAccountByID(id int32) (*domain.Account, error)
-	GetAccountByEmail(email string) (*domain.Account, error)
-	SearchAccount(firstName, lastName, email string, from, size int) []*domain.Account
-	FullUpdateAccount(newAccount *domain.Account) error
-	DeleteAccount(accoundID int) error
+	GetByID(id int) (*domain.Account, error)
+	Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error)
+	Update(newAccount *domain.Account) error
+	Delete(accoundID int) error
 }
 
 type AccountUsecase struct {
@@ -24,52 +21,61 @@ func NewAccountUsecase(repo accountRepository) *AccountUsecase {
 	}
 }
 
-func (u *AccountUsecase) CreateUser(firstName, lastName, email, password string) (*domain.Account, error) {
-	account := domain.NewAccount(firstName, lastName, email, password)
-
-	return u.repo.InsertAccount(account)
+// AccountUsecase.Get возвращает аккаунт, либо ошибки:
+func (u *AccountUsecase) Get(id int) (*domain.Account, error) {
+	return u.repo.GetByID(id)
 }
 
-func (u *AccountUsecase) GetAccountByID(id int32) (*domain.Account, error) {
-	return u.repo.GetAccountByID(id)
+// AccountUsecase.Search возращает список аккаунтов
+// по критериям поиска domain.SearchAccountDTO или ошибки:
+func (u *AccountUsecase) Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error) {
+
+	if from < 0 {
+		return nil, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrInvalidInput,
+			Description:   "invalid from param",
+		}
+	}
+	if size <= 0 {
+		return nil, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrInvalidInput,
+			Description:   "invalid size param",
+		}
+	}
+	return u.repo.Search(dto, size, from)
 }
 
-func (u *AccountUsecase) Login(email, password string) (*domain.Account, error) {
-	account, err := u.repo.GetAccountByEmail(email)
-
-	if err != nil {
-		return nil, err
+// AccountUsecase.Update изменяет поля текущего аккаунта на новые
+// и записывает в repository, возращает новый аккаунт и ошибки:
+func (u *AccountUsecase) Update(currentAccount *domain.Account, newAccount domain.UpdateAccountDTO) (*domain.Account, error) {
+	if currentAccount.ID != newAccount.ID {
+		return nil, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrForbidden,
+			Description:   "update not your account",
+		}
 	}
 
-	if account.Password == password {
-		return account, nil
+	account := &domain.Account{
+		ID:        newAccount.ID,
+		FirstName: newAccount.FirstName,
+		LastName:  newAccount.LastName,
+		Email:     newAccount.Email,
+		Password:  newAccount.Password,
 	}
 
-	return nil, errors.New("invalid credentials")
+	return account, u.repo.Update(account)
 }
 
-func (u *AccountUsecase) SearchAccount(firstName, lastName, email string, from, size int) []*domain.AccountResponse {
-	accounts := u.repo.SearchAccount(firstName, lastName, email, from, size)
-
-	var responseAccounts []*domain.AccountResponse
-
-	for _, account := range accounts {
-		responseAccounts = append(responseAccounts, domain.MakeAccountResponse(*account))
+// AccountUsecase.Delete удаляет аккаунт по id, возвращает ошибки:
+func (u *AccountUsecase) Delete(executor *domain.Account, id int) error {
+	if executor.ID != id {
+		return &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrForbidden,
+		}
 	}
-
-	return responseAccounts
-}
-
-func (u *AccountUsecase) FullUpdateAccount(currentAccount *domain.Account, newAccount *domain.Account) (*domain.AccountResponse, error) {
-	newAccount.ID = currentAccount.ID
-
-	if err := u.repo.FullUpdateAccount(newAccount); err != nil {
-		return nil, err
-	}
-
-	return domain.MakeAccountResponse(*newAccount), nil
-}
-
-func (u *AccountUsecase) DeleteAccount(accoundID int) error {
-	return u.repo.DeleteAccount(accoundID)
+	return u.repo.Delete(id)
 }
