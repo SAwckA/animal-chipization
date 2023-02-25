@@ -111,16 +111,19 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 
 	var searchParams []string
 	var searchData []interface{}
-	placeholder := 1
+	placeholder := 3
+
+	searchData = append(searchData, params.Size)
+	searchData = append(searchData, params.From)
 
 	if params.StartDateTime != nil {
-		searchParams = append(searchParams, "an.chippingdatetime > $1")
+		searchParams = append(searchParams, fmt.Sprintf("an.chippingdatetime > $%d", placeholder))
 		searchData = append(searchData, params.StartDateTime)
 		placeholder++
 	}
 
 	if params.EndDateTime != nil {
-		searchParams = append(searchParams, "an.chippingdatetime < $2")
+		searchParams = append(searchParams, fmt.Sprintf("an.chippingdatetime < $%d", placeholder))
 		searchData = append(searchData, params.EndDateTime)
 		placeholder++
 	}
@@ -147,7 +150,7 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 	}
 
 	isSearch := ""
-	if len(searchData) > 0 {
+	if len(searchData) > 2 {
 		isSearch = "where"
 	}
 
@@ -186,18 +189,15 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 	left join types1 on types1.animal_id = an.id
 	%s
 		%s
-	offset $%d
-	limit $%d`,
+	order by an.id
+	limit $1
+	offset $2`,
 		animalVisitedLocationsTable,
 		animalTypesListTable,
 		animalTable,
 		isSearch,
 		strings.Join(searchParams, " and "),
-		placeholder,
-		placeholder+1,
 	)
-	searchData = append(searchData, params.From)
-	searchData = append(searchData, params.Size)
 
 	rows, err := r.db.Query(query, searchData...)
 
@@ -250,6 +250,7 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 
 		res = append(res, animal)
 	}
+
 	return &res, nil
 }
 

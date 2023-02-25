@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 const animalIDParam = "animalId"
@@ -118,6 +117,7 @@ func (h *AnimalHandler) getAnimal(c *gin.Context) {
 }
 
 func (h *AnimalHandler) searchAnimal(c *gin.Context) {
+
 	input, err := parseSearchAnimalParams(c)
 
 	if err != nil {
@@ -181,7 +181,6 @@ func (h *AnimalHandler) createAnimal(c *gin.Context) {
 		unreachableError(c, err)
 
 	default:
-		logrus.Error(err)
 		c.JSON(http.StatusCreated, animal.Response())
 	}
 
@@ -371,7 +370,7 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 	startDateTimeQuery := c.Query("startDateTime")
 	endDateTimeQuery := c.Query("endDateTime")
 
-	chipperIDQuery := c.Query("chippedId")
+	chipperIDQuery := c.Query("chipperId")
 	chippedLocationIDQuery := c.Query("chippedLocationId")
 
 	fromQuery := c.Query("from")
@@ -412,6 +411,7 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 		if chipperID <= 0 || err != nil {
 			return nil, err
 		}
+		animalSearchParams.ChipperID = &chipperID
 	}
 
 	if chippedLocationIDQuery == "" || chippedLocationIDQuery == "null" {
@@ -422,6 +422,7 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 		if chippedLocationID <= 0 || err != nil {
 			return nil, err
 		}
+		animalSearchParams.ChippedLocationID = &chippedLocationID
 	}
 
 	if lifeStatus == "" || lifeStatus == "null" {
@@ -474,6 +475,5 @@ func parseSearchAnimalParams(c *gin.Context) (*domain.AnimalSearchParams, error)
 		}
 		animalSearchParams.Size = size
 	}
-
 	return &animalSearchParams, nil
 }

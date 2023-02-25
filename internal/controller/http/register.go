@@ -2,6 +2,7 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ func (h *RegisterHandler) CreateAccount(c *gin.Context) {
 	account, err := h.usecase.Register(input)
 
 	switch {
-	case err == domain.ErrAccountAlreadyExist:
+	case errors.Unwrap(err) == domain.ErrAlreadyExist:
 		newErrorResponse(c, http.StatusConflict, err.Error(), nil)
 	case err != nil:
 		newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)

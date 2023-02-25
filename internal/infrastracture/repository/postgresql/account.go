@@ -107,6 +107,7 @@ func (r *AccountRepository) Search(dto domain.SearchAccountDTO, size int, from i
 		select id, firstname, lastname, email from %s 
 		%s
 			%s
+		ORDER BY id
 		LIMIT $1
 		OFFSET $2`,
 		accountTable,
