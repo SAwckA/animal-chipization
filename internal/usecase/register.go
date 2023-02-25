@@ -55,5 +55,9 @@ func (u *RegisterAccountUsecase) Login(email, password string) (*domain.Account,
 		return account, nil
 	}
 
-	return nil, domain.ErrInvalidCredentials
+	return nil, &domain.ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: domain.ErrInvalidInput,
+		Description:   "invalid credentials",
+	}
 }

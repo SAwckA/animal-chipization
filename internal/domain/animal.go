@@ -1,33 +1,32 @@
 package domain
 
 import (
-	"errors"
 	"time"
 )
 
-// Животное не найдено по id
-var ErrAnimalNotFoundByID = errors.New("animal not found by id")
+// // Животное не найдено по id
+// var ErrAnimalNotFoundByID = errors.New("animal not found by id")
 
-// Встречается только в AnimalCreateParams
-// Ошибка дублирования типа животного в массиве
-var ErrAnimalTypeParamsDuplicate = errors.New("animal type list has duplicates")
+// // Встречается только в AnimalCreateParams
+// // Ошибка дублирования типа животного в массиве
+// var ErrAnimalTypeParamsDuplicate = errors.New("animal type list has duplicates")
 
-// Отсутствие типа в списке типов животного
-var ErrMissingAnimalType = errors.New("missing animal type in list of animal types")
+// // Отсутствие типа в списке типов животного
+// var ErrMissingAnimalType = errors.New("missing animal type in list of animal types")
 
-// Универсальная ошибка валидации параметров создания животного
-var ErrAnimalCreateParamsInvalid = errors.New("invalid create animal params")
+// // Универсальная ошибка валидации параметров создания животного
+// var ErrAnimalCreateParamsInvalid = errors.New("invalid create animal params")
 
-// Универсальная ошибка валидации параметров обновления животного
-var ErrAnimalUpdateParamsInvalid = errors.New("invalid update animal params")
+// // Универсальная ошибка валидации параметров обновления животного
+// var ErrAnimalUpdateParamsInvalid = errors.New("invalid update animal params")
 
-// Универсальная ошибка валидации параметров изменения типа животного
-var ErrAnimalEditTypeParamsInvalid = errors.New("invalid edit animal type params")
+// // Универсальная ошибка валидации параметров изменения типа животного
+// var ErrAnimalEditTypeParamsInvalid = errors.New("invalid edit animal type params")
 
-// Отсутсвие типов в животного
-var ErrAnimalTypeListEmpty = errors.New("empty animal type list")
+// // Отсутсвие типов в животного
+// var ErrAnimalTypeListEmpty = errors.New("empty animal type list")
 
-var ErrAnimalVisitLocationNotFound = errors.New("animal dont visited this location")
+// var ErrAnimalVisitLocationNotFound = errors.New("animal dont visited this location")
 
 type Animal struct {
 	ID                 int               `json:"id" db:"id"`
@@ -135,7 +134,11 @@ func validateList(l *[]int) bool {
 }
 
 func (p *AnimalCreateParams) Validate() error {
-	var err = ErrAnimalCreateParamsInvalid
+	err := &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrInvalidInput,
+		Description:   "Invalid create animal params",
+	}
 
 	switch {
 
@@ -211,7 +214,7 @@ type AnimalEditTypeParams struct {
 
 func (p *AnimalEditTypeParams) Validate() error {
 	err := &ApplicationError{
-		OriginalError: ErrInvalidParams,
+		OriginalError: nil,
 		SimplifiedErr: ErrInvalidInput,
 	}
 

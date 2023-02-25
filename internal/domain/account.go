@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"errors"
-
 	"github.com/go-playground/validator/v10"
 )
 
@@ -15,12 +13,12 @@ type AccountID struct {
 	ID int `uri:"accountId" binding:"gt=0"`
 }
 
-var ErrAccountNotFoundByID = errors.New("account not found by id")                // Аккаунт с таким accountId не найден
-var ErrAccountLinkedWithAnimal = errors.New("account linked with animal")         // Аккаунт связан с животным
-var ErrAccountAccessForbidden = errors.New("delete non-personal account")         // Удаление не своего аккаунта
-var ErrAccountAlreadyExist = errors.New("account with given email already exist") // Аккаунт с таких email уже существует
-var ErrInvalidAccountForm = errors.New("invalid registration form")               // Невалидные данные для регистрации
-var ErrInvalidCredentials = errors.New("invalid credentials")
+// var ErrAccountNotFoundByID = errors.New("account not found by id")                // Аккаунт с таким accountId не найден
+// var ErrAccountLinkedWithAnimal = errors.New("account linked with animal")         // Аккаунт связан с животным
+// var ErrAccountAccessForbidden = errors.New("delete non-personal account")         // Удаление не своего аккаунта
+// var ErrAccountAlreadyExist = errors.New("account with given email already exist") // Аккаунт с таких email уже существует
+// var ErrInvalidAccountForm = errors.New("invalid registration form")               // Невалидные данные для регистрации
+// var ErrInvalidCredentials = errors.New("invalid credentials")
 
 type Account struct {
 	ID        int    `json:"id" db:"id"`

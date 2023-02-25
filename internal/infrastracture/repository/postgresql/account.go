@@ -29,7 +29,11 @@ func (r *AccountRepository) Create(account *domain.Account) (int, error) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), accountEmailUniqueConstraint) {
-			return 0, domain.ErrAccountAlreadyExist
+			return 0, &domain.ApplicationError{
+				OriginalError: err,
+				SimplifiedErr: domain.ErrAlreadyExist,
+				Description:   "account with given email already exists",
+			}
 		}
 		return 0, err
 	}

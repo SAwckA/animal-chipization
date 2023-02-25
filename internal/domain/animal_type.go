@@ -1,10 +1,8 @@
 package domain
 
-import "errors"
-
-var ErrAnimalTypeNotFound = errors.New("animal type not found")                        // Тип животного не найден
-var ErrAnimalTypeLinked = errors.New("animal type linked to animal")                   // Тип животного свзязан с животным
-var ErrAnimalTypeAlreadyExist = errors.New("animal type with this name already exist") // Тип животного с таким type уже существует
+// var ErrAnimalTypeNotFound = errors.New("animal type not found")                        // Тип животного не найден
+// var ErrAnimalTypeLinked = errors.New("animal type linked to animal")                   // Тип животного свзязан с животным
+// var ErrAnimalTypeAlreadyExist = errors.New("animal type with this name already exist") // Тип животного с таким type уже существует
 
 type AnimalType struct {
 	ID   int    `json:"id" db:"id"`

@@ -1,15 +1,14 @@
 package domain
 
 import (
-	"errors"
 	"time"
 )
 
-var ErrInvalidParams = errors.New("invalid params")
-var ErrDeadAnimal = errors.New("animal is dead")
-var ErrLocationPointEqualChippingLocation = errors.New("attempt to add a location point equal to the chipping point")
-var ErrAlreadyLocated = errors.New("attempt to add a location point where the animal is already located")
-var ErrEqualNewVisitLocation = errors.New("cant update visit location point to same location point")
+// var ErrInvalidParams = errors.New("invalid params")
+// var ErrDeadAnimal = errors.New("animal is dead")
+// var ErrLocationPointEqualChippingLocation = errors.New("attempt to add a location point equal to the chipping point")
+// var ErrAlreadyLocated = errors.New("attempt to add a location point where the animal is already located")
+// var ErrEqualNewVisitLocation = errors.New("cant update visit location point to same location point")
 
 type VisitedLocation struct {
 	ID              int       `json:"id"`
