@@ -11,10 +11,18 @@ var ErrNotFound = errors.New("not found")
 var ErrUnknown = errors.New("unknown error")
 var ErrForbidden = errors.New("forbidden")
 
+// ApplicationError обогощение ошибки, для упрощенной обработки в контроллерах
 type ApplicationError struct {
+	// Ошибка не связанная с логикой функции
+	// (Сторонняя ошибка)
 	OriginalError error
+
+	// Ошибка читаемая приложением
+	// Она же упрощенная
 	SimplifiedErr error
-	Description   string
+
+	// Подробное описание экземпляра ошибки
+	Description string
 }
 
 func (e *ApplicationError) Error() string {

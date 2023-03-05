@@ -2,22 +2,23 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
+const accountIDParam = "accountId"
+
 type accountUsecase interface {
 	Get(id int) (*domain.Account, error)
-	Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error)
-	Update(old *domain.Account, newAccount domain.UpdateAccountDTO) (*domain.Account, error)
+	Search(dto *domain.SearchAccount) ([]domain.Account, error)
+	Update(old *domain.Account, newAccount domain.UpdateAccount) (*domain.Account, error)
 	Delete(executor *domain.Account, id int) error
 }
 
 type AccountHandler struct {
 	usecase    accountUsecase
-	middleware *Middleware
+	middleware *AuthMiddleware
 }
 
 type AccountResponse struct {
@@ -27,28 +28,29 @@ type AccountResponse struct {
 	Email     string `json:"email"`
 }
 
-func NewAccountHandler(usecase accountUsecase, middleware *Middleware) *AccountHandler {
+func NewAccountHandler(usecase accountUsecase, middleware *AuthMiddleware) *AccountHandler {
 	return &AccountHandler{usecase: usecase, middleware: middleware}
 }
 
 func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	account := router.Group("/accounts")
 	{
+		account.Use(h.middleware.checkAuthHeaderMiddleware)
 		account.GET("/:accountId",
-			h.middleware.ckeckAuthHeaderMiddleware,
-			h.getAccountByID,
+			errorHandlerWrap(h.getAccountByID),
 		)
 
 		account.GET("/search",
-			h.middleware.ckeckAuthHeaderMiddleware,
-			h.searchAccount,
+			errorHandlerWrap(h.searchAccount),
 		)
 		account.PUT("/:accountId",
 			h.middleware.authMiddleware,
-			h.updateAccount)
+			errorHandlerWrap(h.updateAccount),
+		)
 		account.DELETE("/:accountId",
 			h.middleware.authMiddleware,
-			h.deleteAccount)
+			errorHandlerWrap(h.deleteAccount),
+		)
 
 	}
 
@@ -70,28 +72,21 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 // 			"lastName": "string",	// Фамилия пользователя
 // 			"email": "string"		// Адрес электронной почты
 // 		}
-func (h *AccountHandler) getAccountByID(c *gin.Context) {
+func (h *AccountHandler) getAccountByID(c *gin.Context) error {
 
-	var input domain.AccountID
-
-	if err := c.BindUri(&input); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+	accountID, err := validateID(c.Copy(), accountIDParam)
+	if err != nil {
+		return err
 	}
 
-	account, err := h.usecase.Get(input.ID)
+	account, err := h.usecase.Get(accountID)
 
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case nil:
-		c.JSON(http.StatusOK, account.Response())
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
 
+	c.JSON(http.StatusOK, account.Response())
+	return nil
 }
 
 // API 2: Поиск аккаунтов пользователей по параметрам
@@ -121,46 +116,29 @@ func (h *AccountHandler) getAccountByID(c *gin.Context) {
 // 			"email": "string"	// Адрес электронной почты
 // 		}
 // 	]
-func (h *AccountHandler) searchAccount(c *gin.Context) {
+func (h *AccountHandler) searchAccount(c *gin.Context) error {
 
-	var input domain.SearchAccountDTO
-
-	if err := c.ShouldBindQuery(&input); err != nil {
-		badRequest(c, err.Error())
-		return
+	var input domain.SearchAccount
+	if err := c.BindQuery(&input); err != nil {
+		return err
 	}
 
-	size, err := GetIntQuery(c.Copy(), "size", domain.AccountDefaultSize)
+	result, err := h.usecase.Search(&input)
 	if err != nil {
-		badRequest(c, err.Error())
-		return
+		return err
 	}
 
-	from, err := GetIntQuery(c.Copy(), "from", domain.AccountDefaultFrom)
-	if err != nil {
-		badRequest(c, err.Error())
-		return
-	}
+	resp := make([]map[string]interface{}, 0)
 
-	result, err := h.usecase.Search(input, size, from)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrInvalidInput:
-		badRequest(c, err.Error())
-
-	case nil:
-		resp := make([]map[string]interface{}, 0)
-
-		if result != nil {
-			for _, v := range *result {
-				resp = append(resp, v.Response())
-			}
+	if result != nil {
+		for _, v := range result {
+			resp = append(resp, v.Response())
 		}
-
-		c.JSON(http.StatusOK, resp)
-	default:
-		unreachableError(c, err)
 	}
+
+	c.JSON(http.StatusOK, resp)
+	return nil
+
 }
 
 // API 3: Обновление данных аккаунта пользователя
@@ -182,43 +160,30 @@ func (h *AccountHandler) searchAccount(c *gin.Context) {
 // 		"lastName": "string",	// Новая фамилия пользователя
 // 		"email": "string"			// Новый адрес электронной почты
 // 	}
-func (h *AccountHandler) updateAccount(c *gin.Context) {
+func (h *AccountHandler) updateAccount(c *gin.Context) error {
 
-	var accountID domain.AccountID
-	if err := c.BindUri(&accountID); err != nil {
-		badRequest(c, err.Error())
-		return
+	accountID, err := validateID(c.Copy(), accountIDParam)
+	if err != nil {
+		return err
 	}
 
-	var input domain.UpdateAccountDTO
+	var input domain.UpdateAccount
 
 	if err := c.BindJSON(&input); err != nil {
-		badRequest(c, err.Error())
-		return
+		return NewErrBind(err)
 	}
 
-	input.ID = accountID.ID
+	input.ID = accountID
 
-	currentAccount, _ := c.Get(accountCtx)
+	currentAccount := c.MustGet(accountCtx)
 
 	result, err := h.usecase.Update(currentAccount.(*domain.Account), input)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrBadDatabaseOut:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrForbidden:
-		forbiddenResponse(c, err.Error())
-
-	case nil:
-		c.JSON(http.StatusOK, result.Response())
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, result.Response())
+	return nil
 }
 
 // API 4: Удаление аккаунта пользователя
@@ -234,32 +199,20 @@ func (h *AccountHandler) updateAccount(c *gin.Context) {
 // 	Body {
 // 		empty
 // 	}
-func (h *AccountHandler) deleteAccount(c *gin.Context) {
+func (h *AccountHandler) deleteAccount(c *gin.Context) error {
 
-	var accountID domain.AccountID
-	if err := c.BindUri(&accountID); err != nil {
-		badRequest(c, err.Error())
-		return
+	accountID, err := validateID(c.Copy(), accountIDParam)
+	if err != nil {
+		return err
 	}
 
-	account, _ := c.Get(accountCtx)
+	account := c.MustGet(accountCtx)
 
-	err := h.usecase.Delete(account.(*domain.Account), accountID.ID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrBadDatabaseOut:
-		badRequest(c, err.Error())
-
-	case domain.ErrForbidden:
-		forbiddenResponse(c, err.Error())
-
-	case domain.ErrNotFound:
-		forbiddenResponse(c, err.Error())
-
-	case nil:
-		c.JSON(http.StatusOK, nil)
-
-	default:
-		unreachableError(c, err)
+	err = h.usecase.Delete(account.(*domain.Account), accountID)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, nil)
+	return nil
 }

@@ -6,9 +6,12 @@ import (
 
 type accountRepository interface {
 	GetByID(id int) (*domain.Account, error)
-	Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error)
+	Search(dto *domain.SearchAccount) ([]domain.Account, error)
 	Update(newAccount *domain.Account) error
-	Delete(accoundID int) error
+	Delete(accountID int) error
+
+	Create(account *domain.Account) (int, error)
+	GetByEmail(email string) (*domain.Account, error)
 }
 
 type AccountUsecase struct {
@@ -21,35 +24,24 @@ func NewAccountUsecase(repo accountRepository) *AccountUsecase {
 	}
 }
 
-// AccountUsecase.Get возвращает аккаунт, либо ошибки:
+// Get возвращает аккаунт, либо ошибки:
 func (u *AccountUsecase) Get(id int) (*domain.Account, error) {
 	return u.repo.GetByID(id)
 }
 
-// AccountUsecase.Search возращает список аккаунтов
+// Search возращает список аккаунтов
 // по критериям поиска domain.SearchAccountDTO или ошибки:
-func (u *AccountUsecase) Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error) {
+func (u *AccountUsecase) Search(dto *domain.SearchAccount) ([]domain.Account, error) {
+	if err := dto.Validate(); err != nil {
+		return nil, err
+	}
 
-	if from < 0 {
-		return nil, &domain.ApplicationError{
-			OriginalError: nil,
-			SimplifiedErr: domain.ErrInvalidInput,
-			Description:   "invalid from param",
-		}
-	}
-	if size <= 0 {
-		return nil, &domain.ApplicationError{
-			OriginalError: nil,
-			SimplifiedErr: domain.ErrInvalidInput,
-			Description:   "invalid size param",
-		}
-	}
-	return u.repo.Search(dto, size, from)
+	return u.repo.Search(dto)
 }
 
-// AccountUsecase.Update изменяет поля текущего аккаунта на новые
+// Update изменяет поля текущего аккаунта на новые
 // и записывает в repository, возращает новый аккаунт и ошибки:
-func (u *AccountUsecase) Update(currentAccount *domain.Account, newAccount domain.UpdateAccountDTO) (*domain.Account, error) {
+func (u *AccountUsecase) Update(currentAccount *domain.Account, newAccount domain.UpdateAccount) (*domain.Account, error) {
 	if currentAccount.ID != newAccount.ID {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
@@ -69,7 +61,7 @@ func (u *AccountUsecase) Update(currentAccount *domain.Account, newAccount domai
 	return account, u.repo.Update(account)
 }
 
-// AccountUsecase.Delete удаляет аккаунт по id, возвращает ошибки:
+// Delete удаляет аккаунт по id, возвращает ошибки:
 func (u *AccountUsecase) Delete(executor *domain.Account, id int) error {
 	if executor.ID != id {
 		return &domain.ApplicationError{
@@ -78,4 +70,32 @@ func (u *AccountUsecase) Delete(executor *domain.Account, id int) error {
 		}
 	}
 	return u.repo.Delete(id)
+}
+
+func (u *AccountUsecase) Register(dto domain.RegistrationDTO) (*domain.Account, error) {
+
+	account := domain.NewAccount(dto)
+
+	id, err := u.repo.Create(account)
+	account.ID = id
+
+	return account, err
+}
+
+func (u *AccountUsecase) Login(email, password string) (*domain.Account, error) {
+	account, err := u.repo.GetByEmail(email)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if account.Password == password {
+		return account, nil
+	}
+
+	return nil, &domain.ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: domain.ErrInvalidInput,
+		Description:   "invalid credentials",
+	}
 }

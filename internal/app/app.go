@@ -1,9 +1,9 @@
 package app
 
 import (
-	"animal-chipization/internal/controller"
+	"animal-chipization/internal/infrastracture/controller"
+	"animal-chipization/internal/infrastracture/controller/http"
 
-	httpController "animal-chipization/internal/controller/http"
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
 	"animal-chipization/internal/usecase"
@@ -38,23 +38,22 @@ func Run() error {
 	locationRepository := psql.NewLocationRepository(psqlDB)
 	animalTypeRepository := psql.NewAnimalTypeRepository(psqlDB)
 	animalRepository := psql.NewAnimalRepository(psqlDB)
-	visitedLocatoinRepository := psql.NewVisitedLocationRepository(psqlDB)
+	visitedLocationRepository := psql.NewVisitedLocationRepository(psqlDB)
 
 	accountUsecase := usecase.NewAccountUsecase(accountRepository)
-	registerAccountUsecase := usecase.NewRegisterAccountUsecase(accountRepository)
 	locationUsecase := usecase.NewLocationUsecase(locationRepository)
 	animalTypeUsecase := usecase.NewAnimalTypeUsecase(animalTypeRepository)
 	animalUsecase := usecase.NewAnimalUsecase(animalRepository, animalTypeRepository)
-	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocatoinRepository, locationRepository, animalRepository)
+	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocationRepository, locationRepository, animalRepository)
 
-	middlerware := httpController.NewMiddleware(registerAccountUsecase)
+	middleware := http.NewAuthMiddleware(accountUsecase)
 
-	accountHandler := httpController.NewAccountHandler(accountUsecase, middlerware)
-	registerHandler := httpController.NewRegisterHandler(registerAccountUsecase, middlerware)
-	locationHandler := httpController.NewLocationHandler(locationUsecase, middlerware)
-	animalTypeHandler := httpController.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
-	animalHandler := httpController.NewAnimalHandler(animalUsecase, middlerware)
-	visitedLocationHandler := httpController.NewVisitedLocationsHandler(visitedLocationUsecase, middlerware)
+	accountHandler := http.NewAccountHandler(accountUsecase, middleware)
+	registerHandler := http.NewRegisterHandler(accountUsecase, middleware)
+	locationHandler := http.NewLocationHandler(locationUsecase, middleware)
+	animalTypeHandler := http.NewAnimalTypeHandler(animalTypeUsecase, middleware)
+	animalHandler := http.NewAnimalHandler(animalUsecase, middleware)
+	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middleware)
 
 	router := gin.New()
 
@@ -66,8 +65,8 @@ func Run() error {
 	router = visitedLocationHandler.InitRoutes(router)
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("exclude_whitespace", httpController.ExcludeWhitespace)
-		// v.RegisterValidation("default", httpController.DefaultValue)
+		_ = v.RegisterValidation("exclude_whitespace", http.ExcludeWhitespace)
+		//v.RegisterValidation("default", httpController.DefaultValue, true)
 	}
 
 	server := controller.NewHTTPServer("8000", router)
