@@ -1,9 +1,9 @@
 package app
 
 import (
-	"animal-chipization/internal/controller"
+	"animal-chipization/internal/infrastracture/controller"
+	"animal-chipization/internal/infrastracture/controller/http"
 
-	httpController "animal-chipization/internal/controller/http"
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
 	"animal-chipization/internal/usecase"
@@ -47,14 +47,14 @@ func Run() error {
 	animalUsecase := usecase.NewAnimalUsecase(animalRepository, animalTypeRepository)
 	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocatoinRepository, locationRepository, animalRepository)
 
-	middlerware := httpController.NewMiddleware(registerAccountUsecase)
+	middlerware := http.NewMiddleware(registerAccountUsecase)
 
-	accountHandler := httpController.NewAccountHandler(accountUsecase, middlerware)
-	registerHandler := httpController.NewRegisterHandler(registerAccountUsecase, middlerware)
-	locationHandler := httpController.NewLocationHandler(locationUsecase, middlerware)
-	animalTypeHandler := httpController.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
-	animalHandler := httpController.NewAnimalHandler(animalUsecase, middlerware)
-	visitedLocationHandler := httpController.NewVisitedLocationsHandler(visitedLocationUsecase, middlerware)
+	accountHandler := http.NewAccountHandler(accountUsecase, middlerware)
+	registerHandler := http.NewRegisterHandler(registerAccountUsecase, middlerware)
+	locationHandler := http.NewLocationHandler(locationUsecase, middlerware)
+	animalTypeHandler := http.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
+	animalHandler := http.NewAnimalHandler(animalUsecase, middlerware)
+	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middlerware)
 
 	router := gin.New()
 
@@ -66,7 +66,7 @@ func Run() error {
 	router = visitedLocationHandler.InitRoutes(router)
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		_ = v.RegisterValidation("exclude_whitespace", httpController.ExcludeWhitespace)
+		_ = v.RegisterValidation("exclude_whitespace", http.ExcludeWhitespace)
 		//v.RegisterValidation("default", httpController.DefaultValue, true)
 	}
 
