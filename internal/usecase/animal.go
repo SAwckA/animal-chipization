@@ -31,6 +31,9 @@ func (u *AnimalUsecase) GetAnimal(animalID int) (*domain.Animal, error) {
 }
 
 func (u *AnimalUsecase) SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error) {
+	if err := params.Validate(); err != nil {
+		return nil, err
+	}
 	return u.repo.SearchAnimal(params)
 }
 
@@ -162,7 +165,7 @@ func (u *AnimalUsecase) EditAnimalType(animalID int, params domain.AnimalEditTyp
 	if contains := animal.AnimalTypesContains(*params.NewTypeID); contains {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
-			SimplifiedErr: domain.ErrConflict,
+			SimplifiedErr: domain.ErrAlreadyExist,
 			Description:   "animal already has this type",
 		}
 	}

@@ -66,8 +66,8 @@ func Run() error {
 	router = visitedLocationHandler.InitRoutes(router)
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
-		v.RegisterValidation("exclude_whitespace", httpController.ExcludeWhitespace)
-		// v.RegisterValidation("default", httpController.DefaultValue)
+		_ = v.RegisterValidation("exclude_whitespace", httpController.ExcludeWhitespace)
+		//v.RegisterValidation("default", httpController.DefaultValue, true)
 	}
 
 	server := controller.NewHTTPServer("8000", router)

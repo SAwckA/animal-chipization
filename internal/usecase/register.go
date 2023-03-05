@@ -39,7 +39,7 @@ func (u *RegisterAccountUsecase) Register(dto domain.RegistrationDTO) (*domain.A
 	return account, err
 }
 
-// RegisterAccountUsecase.Login аутентификация пользователя,
+// Login аутентификация пользователя,
 // возращает аккаунт под которым авторизовались и ошибки:
 // 		domain.ErrAccountNotFoundByID :: repository
 //

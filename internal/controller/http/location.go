@@ -2,11 +2,8 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 const pointIDParam = "pointId"
@@ -36,144 +33,92 @@ func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group("/locations")
 	{
+		locations.Use(h.middleware.ckeckAuthHeaderMiddleware)
 		locations.GET("/:pointId",
-			h.middleware.ckeckAuthHeaderMiddleware,
-			h.getLocationPoint,
+			errorHandlerWrap(h.getLocationPoint),
 		)
 		locations.POST("",
 			h.middleware.authMiddleware,
-			h.createLocation,
+			errorHandlerWrap(h.createLocation),
 		)
 		locations.PUT("/:pointId",
 			h.middleware.authMiddleware,
-			h.updateLocation,
+			errorHandlerWrap(h.updateLocation),
 		)
 		locations.DELETE("/:pointId",
 			h.middleware.authMiddleware,
-			h.deleteLocation,
+			errorHandlerWrap(h.deleteLocation),
 		)
 	}
 
 	return router
 }
 
-func (h *LocationHandler) getLocationPoint(c *gin.Context) {
-
-	pointIDString := c.Param("pointId")
-
-	if pointIDString == "null" || pointIDString == "" {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	pointID, err := strconv.Atoi(pointIDString)
-
+func (h *LocationHandler) getLocationPoint(c *gin.Context) error {
+	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
-	}
-
-	if pointID <= 0 {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
+		return err
 	}
 
 	location, err := h.usecase.GetLocation(pointID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	default:
-		c.JSON(http.StatusOK, location)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, location)
+	return nil
 }
 
-func (h *LocationHandler) createLocation(c *gin.Context) {
+func (h *LocationHandler) createLocation(c *gin.Context) error {
 	var newLocation *domain.Location
 
 	if err := c.BindJSON(&newLocation); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", err)
-		return
+		return NewErrBind(err)
 	}
 
 	location, err := h.usecase.CreateLocation(*newLocation.Latitude, *newLocation.Longitude)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	default:
-		c.JSON(http.StatusCreated, location)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusCreated, location)
+	return nil
 }
 
-func (h *LocationHandler) updateLocation(c *gin.Context) {
+func (h *LocationHandler) updateLocation(c *gin.Context) error {
 
 	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
-		badRequest(c, err.Error())
-		return
+		return err
 	}
 
 	var newLocation *domain.Location
 	if err := c.BindJSON(&newLocation); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid request data", nil)
-		return
+		return NewErrBind(err)
 	}
 
 	newLocation, err = h.usecase.UpdateLocation(pointID, newLocation)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	default:
-		c.JSON(http.StatusOK, newLocation)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, newLocation)
+	return nil
 }
 
-func (h *LocationHandler) deleteLocation(c *gin.Context) {
+func (h *LocationHandler) deleteLocation(c *gin.Context) error {
 
 	pointID, err := validateID(c.Copy(), pointIDParam)
 
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, "Invalid pointId", nil)
-		return
+		return err
 	}
 
 	err = h.usecase.DeleteLocation(pointID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	default:
-		c.JSON(http.StatusOK, nil)
+	if err != nil {
+		return err
 	}
 
+	c.JSON(http.StatusOK, nil)
+	return nil
 }

@@ -1,9 +1,5 @@
 package domain
 
-import (
-	"github.com/go-playground/validator/v10"
-)
-
 const (
 	AccountDefaultFrom = 0
 	AccountDefaultSize = 10
@@ -53,33 +49,41 @@ func NewAccount(dto RegistrationDTO) *Account {
 	}
 }
 
-type SearchAccountDTO struct {
+type SearchAccount struct {
 	FirstName *string `form:"firstName"`
 	LastName  *string `form:"lastName"`
 	Email     *string `form:"email"`
+	Size      *int    `form:"size"`
+	From      *int    `form:"from"`
 }
 
-func (d *SearchAccountDTO) Prepare() error {
-	if err := validator.New().Struct(d); err != nil {
+func (s *SearchAccount) Validate() error {
+	err := &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrInvalidInput,
+		Description:   "validation error",
+	}
+	var defaultFrom, defaultSize = AccountDefaultFrom, AccountDefaultSize
+
+	if s.From == nil {
+		s.From = &defaultFrom
+	}
+	if s.Size == nil {
+		s.Size = &defaultSize
+	}
+
+	switch {
+	case *s.From < 0:
 		return err
-	}
+	case *s.Size <= 0:
+		return err
 
-	if d.FirstName != nil || *d.FirstName == "null" {
-		d.FirstName = nil
+	default:
+		return nil
 	}
-
-	if d.LastName != nil || *d.LastName == "null" {
-		d.LastName = nil
-	}
-
-	if d.Email != nil || *d.Email == "null" {
-		d.Email = nil
-	}
-
-	return nil
 }
 
-type UpdateAccountDTO struct {
+type UpdateAccount struct {
 	ID        int
 	FirstName string `json:"firstName" binding:"required,exclude_whitespace"`
 	LastName  string `json:"lastName" binding:"required,exclude_whitespace"`

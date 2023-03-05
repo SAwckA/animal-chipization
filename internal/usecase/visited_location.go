@@ -62,7 +62,7 @@ func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedL
 		if animal.VisitedLocations[len(animal.VisitedLocations)-1].LocationPointID == pointID {
 			return nil, &domain.ApplicationError{
 				OriginalError: nil,
-				SimplifiedErr: domain.ErrAlreadyExist,
+				SimplifiedErr: domain.ErrInvalidInput,
 			}
 		}
 	}
@@ -132,7 +132,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 			if animal.VisitedLocations[pos-1].LocationPointID == *newLocation.LocationPointID {
 				return nil, &domain.ApplicationError{
 					OriginalError: nil,
-					SimplifiedErr: domain.ErrAlreadyExist,
+					SimplifiedErr: domain.ErrInvalidInput,
 					Description:   "last visited location equal to new",
 				}
 			}
@@ -141,7 +141,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 			if animal.VisitedLocations[pos+1].LocationPointID == *newLocation.LocationPointID {
 				return nil, &domain.ApplicationError{
 					OriginalError: nil,
-					SimplifiedErr: domain.ErrAlreadyExist,
+					SimplifiedErr: domain.ErrInvalidInput,
 					Description:   "next visited location equal to new",
 				}
 			}

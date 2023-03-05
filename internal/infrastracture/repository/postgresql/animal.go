@@ -93,13 +93,13 @@ func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
 	}
 
 	if typesString != nil {
-		json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
+		_ = json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
 	} else {
 		animal.AnimalTypes = make([]int, 0)
 	}
 
 	if visitedLocationString != nil {
-		json.Unmarshal([]byte(*visitedLocationString), &animal.VisitedLocations)
+		_ = json.Unmarshal([]byte(*visitedLocationString), &animal.VisitedLocations)
 	} else {
 		animal.VisitedLocations = make([]domain.VisitedLocation, 0)
 	}

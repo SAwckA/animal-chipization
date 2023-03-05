@@ -2,7 +2,6 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -34,166 +33,111 @@ func (h *VisitedLocationsHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group(fmt.Sprintf("animals/:%s/locations", animalIDParam))
 	{
+		locations.Use(h.middleware.ckeckAuthHeaderMiddleware)
 		locations.GET("",
-			h.middleware.ckeckAuthHeaderMiddleware,
-			h.search,
+			errorHandlerWrap(h.search),
 		)
 		locations.POST(fmt.Sprintf("/:%s", pointIDParam),
 			h.middleware.authMiddleware,
-			h.create,
+			errorHandlerWrap(h.create),
 		)
 		locations.PUT("",
 			h.middleware.authMiddleware,
-			h.update,
+			errorHandlerWrap(h.update),
 		)
 		locations.DELETE(fmt.Sprintf("/:%s", visitedPointIDParam),
 			h.middleware.authMiddleware,
-			h.delete,
+			errorHandlerWrap(h.delete),
 		)
 	}
 
 	return router
 }
 
-func (h *VisitedLocationsHandler) create(c *gin.Context) {
+func (h *VisitedLocationsHandler) create(c *gin.Context) error {
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	visitedLocation, err := h.usecase.Create(animalID, pointID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrInvalidInput, domain.ErrAlreadyExist:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	case nil:
-		c.JSON(http.StatusCreated, visitedLocation.Response())
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
 
+	c.JSON(http.StatusCreated, visitedLocation.Response())
+	return nil
 }
 
-func (h *VisitedLocationsHandler) update(c *gin.Context) {
+func (h *VisitedLocationsHandler) update(c *gin.Context) error {
 
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	var input domain.UpdateVisitedLocationDTO
-	if err := c.BindJSON(&input); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+	if err = c.BindJSON(&input); err != nil {
+		return NewErrBind(err)
 	}
 
 	location, err := h.usecase.Update(animalID, input)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrInvalidInput, domain.ErrAlreadyExist:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	case nil:
-		c.JSON(http.StatusOK, location.Response())
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
 
+	c.JSON(http.StatusOK, location.Response())
+	return nil
 }
 
-func (h *VisitedLocationsHandler) delete(c *gin.Context) {
+func (h *VisitedLocationsHandler) delete(c *gin.Context) error {
 
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	locationID, err := validateID(c.Copy(), visitedPointIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	err = h.usecase.Delete(animalID, locationID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrInvalidInput, domain.ErrAlreadyExist:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	case nil:
-		c.JSON(http.StatusOK, nil)
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, nil)
+	return nil
 }
 
-func (h *VisitedLocationsHandler) search(c *gin.Context) {
+func (h *VisitedLocationsHandler) search(c *gin.Context) error {
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return err
 	}
 
 	var input domain.SearchVisitedLocationDTO
 	if err := c.BindQuery(&input); err != nil {
-		newErrorResponse(c, http.StatusBadRequest, err.Error(), nil)
-		return
+		return NewErrBind(err)
 	}
 
 	locations, err := h.usecase.Search(animalID, input)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrInvalidInput, domain.ErrAlreadyExist:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	case nil:
-		resp := make([]map[string]interface{}, 0)
-		tmp := *locations
-		for _, v := range tmp {
-			resp = append(resp, v.Response())
-		}
-
-		c.JSON(http.StatusOK, resp)
-
-	default:
-		unreachableError(c, err)
+	if err != nil {
+		return err
 	}
 
+	resp := make([]map[string]interface{}, 0)
+	tmp := *locations
+	for _, v := range tmp {
+		resp = append(resp, v.Response())
+	}
+
+	c.JSON(http.StatusOK, resp)
+	return nil
 }

@@ -252,15 +252,53 @@ func NewAnimal(params AnimalCreateParams) (*Animal, error) {
 }
 
 type AnimalSearchParams struct {
-	StartDateTime *time.Time
-	EndDateTime   *time.Time
+	StartDateTime *time.Time `form:"startDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
+	EndDateTime   *time.Time `form:"endDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
 
-	ChipperID         *int
-	ChippedLocationID *int
+	ChipperID         *int `form:"chipperId"`
+	ChippedLocationID *int `form:"chippingLocationId"`
 
-	LifeStatus *string
-	Gender     *string
+	LifeStatus *string `form:"lifeStatus"`
+	Gender     *string `form:"gender"`
 
-	From int
-	Size int
+	From *int `form:"from"`
+	Size *int `form:"size"`
 }
+
+func (s *AnimalSearchParams) Validate() error {
+	err := &ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: ErrInvalidInput,
+		Description:   "validation error",
+	}
+	var defaultFrom, defaultSize = 0, 10
+
+	if s.From == nil {
+		s.From = &defaultFrom
+	}
+	if s.Size == nil {
+		s.Size = &defaultSize
+	}
+
+	switch {
+	case *s.From < 0:
+		return err
+	case *s.Size <= 0:
+		return err
+
+	// TODO: не в формате ISO-8601
+
+	default:
+		return nil
+	}
+
+}
+
+// func (a *AnimalSearchParamsTest) Bind(request *http.Request, i interface{}) {
+// 	queries :=request.URL.Query()
+
+// 	if v, ok := queries["startDateTime"]; !ok {
+// 		i.StartDateTime = v
+// 	}
+
+// }

@@ -73,11 +73,11 @@ func (r *AccountRepository) GetByEmail(email string) (*domain.Account, error) {
 	return &account, nil
 }
 
-func (r *AccountRepository) Search(dto domain.SearchAccountDTO, size int, from int) (*[]domain.Account, error) {
+func (r *AccountRepository) Search(dto *domain.SearchAccount) ([]domain.Account, error) {
 	var searchQuery []string
 	var searchArgs []interface{}
-	searchArgs = append(searchArgs, size)
-	searchArgs = append(searchArgs, from)
+	searchArgs = append(searchArgs, dto.Size)
+	searchArgs = append(searchArgs, dto.From)
 
 	ph := 3
 	isSearch := "where"
@@ -133,7 +133,7 @@ func (r *AccountRepository) Search(dto domain.SearchAccountDTO, size int, from i
 		accounts = append(accounts, account)
 	}
 
-	return &accounts, err
+	return accounts, err
 }
 
 func (r *AccountRepository) Update(newAccount *domain.Account) error {
@@ -172,7 +172,7 @@ func (r *AccountRepository) Delete(accoundID int) error {
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
-			SimplifiedErr: domain.ErrBadDatabaseOut,
+			SimplifiedErr: domain.ErrInvalidInput,
 			Description:   "account linked with animal",
 		}
 	}

@@ -2,7 +2,6 @@ package http
 
 import (
 	"animal-chipization/internal/domain"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -31,141 +30,90 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	animalTypes := router.Group("animals/types")
 	{
+		animalTypes.Use(h.middleware.ckeckAuthHeaderMiddleware)
 		animalTypes.GET(fmt.Sprintf("/:%s", typeParam),
-			h.middleware.ckeckAuthHeaderMiddleware,
-			h.getAnimalType,
+			errorHandlerWrap(h.getAnimalType),
 		)
 		animalTypes.POST("",
 			h.middleware.authMiddleware,
-			h.createAnimalType,
+			errorHandlerWrap(h.createAnimalType),
 		)
 		animalTypes.PUT(fmt.Sprintf("/:%s", typeParam),
 			h.middleware.authMiddleware,
-			h.updateAnimalType,
+			errorHandlerWrap(h.updateAnimalType),
 		)
 		animalTypes.DELETE(fmt.Sprintf("/:%s", typeParam),
 			h.middleware.authMiddleware,
-			h.deleteAnimalType,
+			errorHandlerWrap(h.deleteAnimalType),
 		)
 	}
 
 	return router
 }
 
-func (h *AnimalTypeHandler) getAnimalType(c *gin.Context) {
-	var typeID domain.TypeId
-
-	if err := c.BindUri(&typeID); err != nil {
-		badRequest(c, err.Error())
-		return
+func (h *AnimalTypeHandler) getAnimalType(c *gin.Context) error {
+	typeID, err := validateID(c.Copy(), typeParam)
+	if err != nil {
+		return err
 	}
 
-	animalType, err := h.usecase.Get(typeID.ID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	default:
-		c.JSON(http.StatusOK, animalType.Response())
+	animalType, err := h.usecase.Get(typeID)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, animalType.Response())
+	return nil
 }
 
-func (h *AnimalTypeHandler) createAnimalType(c *gin.Context) {
+func (h *AnimalTypeHandler) createAnimalType(c *gin.Context) error {
 	var input domain.AnimalTypeDTO
 
 	if err := c.BindJSON(&input); err != nil {
-		badRequest(c, err.Error())
-		return
+		return NewErrBind(err)
 	}
 
 	animalType, err := h.usecase.Create(input.Type)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	default:
-		c.JSON(http.StatusCreated, animalType.Response())
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusCreated, animalType.Response())
+	return nil
 }
 
-func (h *AnimalTypeHandler) updateAnimalType(c *gin.Context) {
-	var typeID domain.TypeId
+func (h *AnimalTypeHandler) updateAnimalType(c *gin.Context) error {
 	var input domain.AnimalTypeDTO
 
-	if err := c.BindUri(&typeID); err != nil {
-		badRequest(c, err.Error())
-		return
+	typeID, err := validateID(c.Copy(), typeParam)
+	if err != nil {
+		return err
 	}
 
 	if err := c.BindJSON(&input); err != nil {
-		badRequest(c, err.Error())
-		return
+		return NewErrBind(err)
 	}
 
-	animalType, err := h.usecase.Update(typeID.ID, input.Type)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	default:
-		c.JSON(http.StatusOK, animalType.Response())
+	animalType, err := h.usecase.Update(typeID, input.Type)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, animalType.Response())
+	return nil
 }
 
-func (h *AnimalTypeHandler) deleteAnimalType(c *gin.Context) {
-	var typeID domain.TypeId
-
-	if err := c.BindUri(&typeID); err != nil {
-		badRequest(c, err.Error())
-		return
+func (h *AnimalTypeHandler) deleteAnimalType(c *gin.Context) error {
+	typeID, err := validateID(c.Copy(), typeParam)
+	if err != nil {
+		return err
 	}
 
-	err := h.usecase.Delete(typeID.ID)
-
-	switch errors.Unwrap(err) {
-	case domain.ErrNotFound:
-		notFoundResponse(c, err.Error())
-
-	case domain.ErrAlreadyExist:
-		conflictResponse(c, err.Error())
-
-	case domain.ErrLinked:
-		badRequest(c, err.Error())
-
-	case domain.ErrUnknown:
-		unreachableError(c, err)
-
-	default:
-		c.JSON(http.StatusOK, nil)
+	err = h.usecase.Delete(typeID)
+	if err != nil {
+		return err
 	}
+
+	c.JSON(http.StatusOK, nil)
+	return nil
 }

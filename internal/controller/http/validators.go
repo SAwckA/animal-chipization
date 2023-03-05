@@ -1,7 +1,7 @@
 package http
 
 import (
-	"errors"
+	"animal-chipization/internal/domain"
 	"strconv"
 	"strings"
 
@@ -15,9 +15,9 @@ var ExcludeWhitespace validator.Func = func(fl validator.FieldLevel) bool {
 	return !(strings.Contains(fl.Field().String(), " ") || strings.Contains(fl.Field().String(), "\n") || strings.Contains(fl.Field().String(), "\t"))
 }
 
-// GetIntQuery достаёт значение из Query ?{key} из копии gin.Context,
+// getIntQuery достаёт значение из Query ?{key} из копии gin.Context,
 // При этом подставляет deafult_ значение, если задано null или значение отсутствует
-func GetIntQuery(cCp *gin.Context, key string, default_ int) (int, error) {
+func getIntQuery(cCp *gin.Context, key string, default_ int) (int, error) {
 	val := cCp.Query(key)
 
 	if val == "" || val == "null" {
@@ -36,17 +36,29 @@ func validateID(cCp *gin.Context, name string) (int, error) {
 	paramString := cCp.Param(name)
 
 	if paramString == "" || paramString == "null" {
-		return 0, errors.New("invalid id")
+		return 0, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrInvalidInput,
+			Description:   "Invalid id param",
+		}
 	}
 
 	res, err := strconv.Atoi(paramString)
 
 	if err != nil {
-		return 0, errors.New("invalid id")
+		return 0, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrInvalidInput,
+			Description:   "Invalid id param",
+		}
 	}
 
 	if res <= 0 {
-		return 0, errors.New("invalid id")
+		return 0, &domain.ApplicationError{
+			OriginalError: nil,
+			SimplifiedErr: domain.ErrInvalidInput,
+			Description:   "Invalid id param",
+		}
 	}
 
 	return res, nil
