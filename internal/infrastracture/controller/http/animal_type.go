@@ -30,7 +30,7 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	animalTypes := router.Group("animals/types")
 	{
-		animalTypes.Use(h.middleware.ckeckAuthHeaderMiddleware)
+		animalTypes.Use(h.middleware.checkAuthHeaderMiddleware)
 		animalTypes.GET(fmt.Sprintf("/:%s", typeParam),
 			errorHandlerWrap(h.getAnimalType),
 		)

@@ -48,6 +48,11 @@ func forbiddenResponse(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusForbidden, msg, nil)
 }
 
+// Alias для newErrorResponse(c, http.StatusUnauthorized, msg, nil)
+func unauthorizedResponse(c *gin.Context, msg string) {
+	newErrorResponse(c, http.StatusUnauthorized, msg, nil)
+}
+
 // Необработаная ошибка
 // Alias для newErrorResponse(c, http.StatusInternalServerError, err.Error(), err)
 func internalError(c *gin.Context, err error) {

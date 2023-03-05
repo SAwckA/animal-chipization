@@ -13,7 +13,7 @@ const visitedPointIDParam = "visitedPointId"
 type visitedLocationUsecase interface {
 	Create(animalID, pointID int) (*domain.VisitedLocation, error)
 	Update(animalID int, location domain.UpdateVisitedLocationDTO) (*domain.VisitedLocation, error)
-	Delete(animalID int, locatoinID int) error
+	Delete(animalID int, locationID int) error
 	Search(animalID int, params domain.SearchVisitedLocationDTO) (*[]domain.VisitedLocation, error)
 }
 
@@ -33,7 +33,7 @@ func (h *VisitedLocationsHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group(fmt.Sprintf("animals/:%s/locations", animalIDParam))
 	{
-		locations.Use(h.middleware.ckeckAuthHeaderMiddleware)
+		locations.Use(h.middleware.checkAuthHeaderMiddleware)
 		locations.GET("",
 			errorHandlerWrap(h.search),
 		)

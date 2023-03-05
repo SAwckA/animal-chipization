@@ -156,7 +156,6 @@ func (u *AnimalUsecase) EditAnimalType(animalID int, params domain.AnimalEditTyp
 	if err := params.Validate(); err != nil {
 		return nil, err
 	}
-
 	animal, err := u.repo.GetAnimal(animalID)
 	if err != nil {
 		return nil, err

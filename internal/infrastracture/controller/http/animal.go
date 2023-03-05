@@ -34,7 +34,7 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	animal := router.Group("animals")
 	{
-		animal.Use(h.middleware.ckeckAuthHeaderMiddleware)
+		animal.Use(h.middleware.checkAuthHeaderMiddleware)
 		animal.GET(fmt.Sprintf("/:%s", animalIDParam),
 			errorHandlerWrap(h.getAnimal),
 		)

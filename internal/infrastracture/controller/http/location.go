@@ -16,7 +16,7 @@ type locationUsecase interface {
 }
 
 type authMiddleware interface {
-	ckeckAuthHeaderMiddleware(ctx *gin.Context)
+	checkAuthHeaderMiddleware(ctx *gin.Context)
 	authMiddleware(ctx *gin.Context)
 }
 
@@ -33,7 +33,7 @@ func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group("/locations")
 	{
-		locations.Use(h.middleware.ckeckAuthHeaderMiddleware)
+		locations.Use(h.middleware.checkAuthHeaderMiddleware)
 		locations.GET("/:pointId",
 			errorHandlerWrap(h.getLocationPoint),
 		)

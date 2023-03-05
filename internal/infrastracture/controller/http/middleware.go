@@ -3,8 +3,6 @@ package http
 import (
 	"animal-chipization/internal/domain"
 	"encoding/base64"
-	"errors"
-	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -12,93 +10,73 @@ import (
 
 const accountCtx = "account"
 
-type middlewareUsecase interface {
+type authUsecase interface {
 	Login(email, password string) (*domain.Account, error)
 }
 
-type Middleware struct {
-	usecase middlewareUsecase
+type AuthMiddleware struct {
+	usecase authUsecase
 }
 
-func NewMiddleware(usecase middlewareUsecase) *Middleware {
-	return &Middleware{usecase: usecase}
+func NewAuthMiddleware(usecase authUsecase) *AuthMiddleware {
+	return &AuthMiddleware{usecase: usecase}
 }
 
 // blockAuthHeader Обработчик аутентификации, отвечает за аутентификацию
 // 		*ЗАПРЕЩАЕТ для авторизованных пользователей
-func (m *Middleware) blockAuthHeader(ctx *gin.Context) {
-	if authHeader := ctx.GetHeader("Authorization"); len(authHeader) > 0 {
-		newErrorResponse(ctx, http.StatusForbidden, "Forbidden for authorized users", nil)
+func (m *AuthMiddleware) blockAuthHeader(c *gin.Context) {
+	if authHeader := c.GetHeader("Authorization"); len(authHeader) > 0 {
+		forbiddenResponse(c, "Forbidden for authorized users")
 		return
 	}
-	ctx.Next()
+	c.Next()
 }
 
-// ckeckAuthHeaderMiddleware Обработчик аутентификации, отвечает за аутентификацию
+// checkAuthHeaderMiddleware Обработчик аутентификации, отвечает за аутентификацию
 // 		*НЕ Обязательная аутентификация
-func (m *Middleware) ckeckAuthHeaderMiddleware(ctx *gin.Context) {
-	if authHeader := ctx.GetHeader("Authorization"); len(authHeader) > 0 {
-		m.authMiddleware(ctx)
+func (m *AuthMiddleware) checkAuthHeaderMiddleware(c *gin.Context) {
+	if authHeader := c.GetHeader("Authorization"); len(authHeader) > 0 {
+		m.authMiddleware(c)
 		return
 	}
-	ctx.Next()
+	c.Next()
 }
 
 // authMiddleware Обработчик аутентификации, отвечает за аутентификацию
 // 		*Обязательная аутентификация
-func (m *Middleware) authMiddleware(ctx *gin.Context) {
-	authHeader := ctx.GetHeader("Authorization")
+func (m *AuthMiddleware) authMiddleware(c *gin.Context) {
 
-	token, err := validateHeader(authHeader)
-
-	if err != nil {
-		newErrorResponse(ctx, http.StatusUnauthorized, err.Error(), nil)
+	email, password, ok := getCredentials(c.Copy())
+	if !ok {
+		unauthorizedResponse(c, "no credentials")
 		return
 	}
 
-	account, err := authorize(string(token), m.usecase.Login)
-
+	account, err := m.usecase.Login(email, password)
 	if err != nil {
-		newErrorResponse(ctx, http.StatusUnauthorized, err.Error(), nil)
+		unauthorizedResponse(c, err.Error())
 		return
 	}
 
-	ctx.Set(accountCtx, account)
-
-	ctx.Next()
+	c.Set(accountCtx, account)
+	c.Next()
 }
 
-func validateHeader(header string) (string, error) {
-	splitedHeaderToken := strings.Split(header, " ")
+// getCredentials Нужен для получения авторизационных данных из заголовка запроса
+func getCredentials(cCp *gin.Context) (string, string, bool) {
 
-	if len(splitedHeaderToken) != 2 || splitedHeaderToken[0] != "Basic" {
-		return "", errors.New("invalid token")
-	}
+	if token := strings.Split(cCp.GetHeader("Authorization"), " "); len(token) == 2 || token[0] == "Basic" {
+		rawToken := token[1]
 
-	encodedToken := splitedHeaderToken[1]
-
-	token, err := base64.StdEncoding.DecodeString(encodedToken)
-
-	if err != nil {
-		return "", errors.New("invalid token")
-	}
-
-	return string(token), err
-}
-
-func authorize(token string, loginFunc func(email string, password string) (*domain.Account, error)) (*domain.Account, error) {
-
-	if splitedAuthString := strings.Split(token, ":"); len(splitedAuthString) == 2 {
-		login, password := splitedAuthString[0], splitedAuthString[1]
-
-		account, err := loginFunc(login, password)
-
+		t, err := base64.StdEncoding.DecodeString(rawToken)
 		if err != nil {
-			return nil, errors.New("invalid credentials")
+			return "", "", false
 		}
 
-		return account, err
+		credentials := strings.Split(string(t), ":")
+
+		return credentials[0], credentials[1], true
 	}
 
-	return nil, errors.New("invalid token")
+	return "", "", false
 }

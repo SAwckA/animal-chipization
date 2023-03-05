@@ -38,23 +38,22 @@ func Run() error {
 	locationRepository := psql.NewLocationRepository(psqlDB)
 	animalTypeRepository := psql.NewAnimalTypeRepository(psqlDB)
 	animalRepository := psql.NewAnimalRepository(psqlDB)
-	visitedLocatoinRepository := psql.NewVisitedLocationRepository(psqlDB)
+	visitedLocationRepository := psql.NewVisitedLocationRepository(psqlDB)
 
 	accountUsecase := usecase.NewAccountUsecase(accountRepository)
-	registerAccountUsecase := usecase.NewRegisterAccountUsecase(accountRepository)
 	locationUsecase := usecase.NewLocationUsecase(locationRepository)
 	animalTypeUsecase := usecase.NewAnimalTypeUsecase(animalTypeRepository)
 	animalUsecase := usecase.NewAnimalUsecase(animalRepository, animalTypeRepository)
-	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocatoinRepository, locationRepository, animalRepository)
+	visitedLocationUsecase := usecase.NewVisitedLocationUsecase(visitedLocationRepository, locationRepository, animalRepository)
 
-	middlerware := http.NewMiddleware(registerAccountUsecase)
+	middleware := http.NewAuthMiddleware(accountUsecase)
 
-	accountHandler := http.NewAccountHandler(accountUsecase, middlerware)
-	registerHandler := http.NewRegisterHandler(registerAccountUsecase, middlerware)
-	locationHandler := http.NewLocationHandler(locationUsecase, middlerware)
-	animalTypeHandler := http.NewAnimalTypeHandler(animalTypeUsecase, middlerware)
-	animalHandler := http.NewAnimalHandler(animalUsecase, middlerware)
-	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middlerware)
+	accountHandler := http.NewAccountHandler(accountUsecase, middleware)
+	registerHandler := http.NewRegisterHandler(accountUsecase, middleware)
+	locationHandler := http.NewLocationHandler(locationUsecase, middleware)
+	animalTypeHandler := http.NewAnimalTypeHandler(animalTypeUsecase, middleware)
+	animalHandler := http.NewAnimalHandler(animalUsecase, middleware)
+	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middleware)
 
 	router := gin.New()
 

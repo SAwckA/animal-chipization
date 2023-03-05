@@ -8,7 +8,10 @@ type accountRepository interface {
 	GetByID(id int) (*domain.Account, error)
 	Search(dto *domain.SearchAccount) ([]domain.Account, error)
 	Update(newAccount *domain.Account) error
-	Delete(accoundID int) error
+	Delete(accountID int) error
+
+	Create(account *domain.Account) (int, error)
+	GetByEmail(email string) (*domain.Account, error)
 }
 
 type AccountUsecase struct {
@@ -67,4 +70,32 @@ func (u *AccountUsecase) Delete(executor *domain.Account, id int) error {
 		}
 	}
 	return u.repo.Delete(id)
+}
+
+func (u *AccountUsecase) Register(dto domain.RegistrationDTO) (*domain.Account, error) {
+
+	account := domain.NewAccount(dto)
+
+	id, err := u.repo.Create(account)
+	account.ID = id
+
+	return account, err
+}
+
+func (u *AccountUsecase) Login(email, password string) (*domain.Account, error) {
+	account, err := u.repo.GetByEmail(email)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if account.Password == password {
+		return account, nil
+	}
+
+	return nil, &domain.ApplicationError{
+		OriginalError: nil,
+		SimplifiedErr: domain.ErrInvalidInput,
+		Description:   "invalid credentials",
+	}
 }

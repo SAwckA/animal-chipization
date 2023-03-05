@@ -18,7 +18,7 @@ type accountUsecase interface {
 
 type AccountHandler struct {
 	usecase    accountUsecase
-	middleware *Middleware
+	middleware *AuthMiddleware
 }
 
 type AccountResponse struct {
@@ -28,14 +28,14 @@ type AccountResponse struct {
 	Email     string `json:"email"`
 }
 
-func NewAccountHandler(usecase accountUsecase, middleware *Middleware) *AccountHandler {
+func NewAccountHandler(usecase accountUsecase, middleware *AuthMiddleware) *AccountHandler {
 	return &AccountHandler{usecase: usecase, middleware: middleware}
 }
 
 func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	account := router.Group("/accounts")
 	{
-		account.Use(h.middleware.ckeckAuthHeaderMiddleware)
+		account.Use(h.middleware.checkAuthHeaderMiddleware)
 		account.GET("/:accountId",
 			errorHandlerWrap(h.getAccountByID),
 		)
