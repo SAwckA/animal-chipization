@@ -3,6 +3,8 @@ package app
 import (
 	"animal-chipization/internal/infrastracture/controller"
 	"animal-chipization/internal/infrastracture/controller/http"
+	"animal-chipization/migrations"
+	"fmt"
 
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
@@ -34,6 +36,11 @@ func Run() error {
 		return err
 	}
 
+	err = migrations.Migrate(fmt.Sprintf("postgres://dev:changeme@%s:5432/animal-chipization?sslmode=disable", os.Getenv("DB_HOST")))
+	if err != nil {
+		panic(err)
+	}
+
 	accountRepository := psql.NewAccountRepository(psqlDB)
 	locationRepository := psql.NewLocationRepository(psqlDB)
 	animalTypeRepository := psql.NewAnimalTypeRepository(psqlDB)
@@ -56,6 +63,8 @@ func Run() error {
 	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middleware)
 
 	router := gin.New()
+
+	gin.SetMode(gin.ReleaseMode)
 
 	router = accountHandler.InitRoutes(router)
 	router = registerHandler.InitRoutes(router)
