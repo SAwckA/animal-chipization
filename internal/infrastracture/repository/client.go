@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"time"
 
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/jmoiron/sqlx"
@@ -32,18 +34,30 @@ func NewMongoClient(connString string) (*mongo.Client, error) {
 	return client, err
 }
 
-func NewPostgresDB(host, port, user, dbname, password, sslmode string) (*sqlx.DB, error) {
-	db, err := sqlx.Open("pgx", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
-		host, port, user, dbname, password, sslmode))
+type postgresConfig interface {
+	DataSourceString() string
+}
 
-	if err != nil {
-		return nil, err
+func NewPostgresDB(config postgresConfig) (db *sqlx.DB, err error) {
+	var maxRetries = 5
+	var timeoutRetry = 2 * time.Second
+
+	for i := 0; i < maxRetries; i++ {
+		db, err = sqlx.Open("pgx", config.DataSourceString())
+
+		if err != nil {
+			logrus.Warnln(fmt.Sprintf("[RETRY %d] cause: %s", i, err.Error()))
+			time.Sleep(timeoutRetry)
+			continue
+		}
+
+		err = db.Ping()
+		if err != nil {
+			logrus.Warnln(fmt.Sprintf("[RETRY %d] cause: %s", i, err.Error()))
+			time.Sleep(timeoutRetry)
+			continue
+		}
+		return
 	}
-
-	errPing := db.Ping()
-	if errPing != nil {
-		return nil, errPing
-	}
-
-	return db, nil
+	return
 }
