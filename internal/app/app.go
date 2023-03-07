@@ -7,7 +7,6 @@ import (
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
 	"animal-chipization/internal/usecase"
-	"animal-chipization/migrations"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
@@ -26,7 +25,7 @@ func Run() error {
 		log.Fatalf("cant connect to database, cause: %s", err.Error())
 	}
 
-	migrations.Migrate(appConfig.PostgresConfig.ConnString())
+	//migrations.Migrate(appConfig.PostgresConfig.ConnString())
 
 	accountRepository := psql.NewAccountRepository(psqlDB)
 	locationRepository := psql.NewLocationRepository(psqlDB)

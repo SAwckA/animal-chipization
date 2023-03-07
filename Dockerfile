@@ -18,7 +18,7 @@ FROM alpine
 WORKDIR /build
 
 COPY --from=builder /build/app /build/app
-COPY migrations/versions migrations/versions
+COPY migrations/ migrations/
 COPY config/config.yaml config/config.yaml
 
 CMD ["./app"]
