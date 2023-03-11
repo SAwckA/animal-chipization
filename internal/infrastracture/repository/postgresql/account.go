@@ -26,7 +26,6 @@ func (r *AccountRepository) Create(account *domain.Account) (int, error) {
 
 	var id int
 	err := r.db.Get(&id, query, account.FirstName, account.LastName, account.Email, account.Password)
-
 	if err != nil {
 		if strings.Contains(err.Error(), accountEmailUniqueConstraint) {
 			return 0, &domain.ApplicationError{
@@ -45,7 +44,6 @@ func (r *AccountRepository) GetByID(id int) (*domain.Account, error) {
 	query := fmt.Sprintf(`select id, firstName, lastName, email from %s where id=$1`, accountTable)
 
 	var account domain.Account
-
 	if err := r.db.QueryRow(query, id).Scan(&account.ID, &account.FirstName, &account.LastName, &account.Email); err != nil {
 		return nil, &domain.ApplicationError{
 			OriginalError: err,
@@ -61,7 +59,6 @@ func (r *AccountRepository) GetByEmail(email string) (*domain.Account, error) {
 	query := fmt.Sprintf(`select id, firstname, lastname, email, password from %s where email=$1`, accountTable)
 
 	var account domain.Account
-
 	if err := r.db.Get(&account, query, email); err != nil {
 		return nil, &domain.ApplicationError{
 			OriginalError: err,
@@ -73,30 +70,30 @@ func (r *AccountRepository) GetByEmail(email string) (*domain.Account, error) {
 	return &account, nil
 }
 
-func (r *AccountRepository) Search(dto *domain.SearchAccount) ([]domain.Account, error) {
+func (r *AccountRepository) Search(params *domain.SearchAccount) ([]domain.Account, error) {
 	var searchQuery []string
 	var searchArgs []interface{}
-	searchArgs = append(searchArgs, dto.Size)
-	searchArgs = append(searchArgs, dto.From)
+	searchArgs = append(searchArgs, params.Size)
+	searchArgs = append(searchArgs, params.From)
 
 	ph := 3
 	isSearch := "where"
 
-	if dto.FirstName != nil {
+	if params.FirstName != nil {
 		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(firstname) like '%%' || LOWER($%d) || '%%') ", ph))
-		searchArgs = append(searchArgs, dto.FirstName)
+		searchArgs = append(searchArgs, params.FirstName)
 		ph++
 	}
 
-	if dto.LastName != nil {
+	if params.LastName != nil {
 		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(lastname) like '%%' || LOWER($%d) || '%%')", ph))
-		searchArgs = append(searchArgs, dto.LastName)
+		searchArgs = append(searchArgs, params.LastName)
 		ph++
 	}
 
-	if dto.Email != nil {
+	if params.Email != nil {
 		searchQuery = append(searchQuery, fmt.Sprintf("(LOWER(email) like '%%' || LOWER($%d) || '%%') ", ph))
-		searchArgs = append(searchArgs, dto.Email)
+		searchArgs = append(searchArgs, params.Email)
 	}
 
 	if len(searchQuery) == 0 {
@@ -114,8 +111,8 @@ func (r *AccountRepository) Search(dto *domain.SearchAccount) ([]domain.Account,
 		isSearch,
 		strings.Join(searchQuery, " and "),
 	)
-	var accounts []domain.Account
 
+	var accounts []domain.Account
 	rows, err := r.db.Query(query, searchArgs...)
 
 	if err != nil {
@@ -148,7 +145,6 @@ func (r *AccountRepository) Update(newAccount *domain.Account) error {
 		`, accountTable)
 
 	_, err := r.db.Exec(query, newAccount.FirstName, newAccount.LastName, newAccount.Email, newAccount.Password, newAccount.ID)
-
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
@@ -160,15 +156,14 @@ func (r *AccountRepository) Update(newAccount *domain.Account) error {
 	return nil
 }
 
-func (r *AccountRepository) Delete(accoundID int) error {
+func (r *AccountRepository) Delete(accountID int) error {
 
 	query := fmt.Sprintf(`
 	delete from %s
 	where id = $1
 	`, accountTable)
 
-	_, err := r.db.Exec(query, accoundID)
-
+	_, err := r.db.Exec(query, accountID)
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,

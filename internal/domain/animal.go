@@ -4,30 +4,6 @@ import (
 	"time"
 )
 
-// // Животное не найдено по id
-// var ErrAnimalNotFoundByID = errors.New("animal not found by id")
-
-// // Встречается только в AnimalCreateParams
-// // Ошибка дублирования типа животного в массиве
-// var ErrAnimalTypeParamsDuplicate = errors.New("animal type list has duplicates")
-
-// // Отсутствие типа в списке типов животного
-// var ErrMissingAnimalType = errors.New("missing animal type in list of animal types")
-
-// // Универсальная ошибка валидации параметров создания животного
-// var ErrAnimalCreateParamsInvalid = errors.New("invalid create animal params")
-
-// // Универсальная ошибка валидации параметров обновления животного
-// var ErrAnimalUpdateParamsInvalid = errors.New("invalid update animal params")
-
-// // Универсальная ошибка валидации параметров изменения типа животного
-// var ErrAnimalEditTypeParamsInvalid = errors.New("invalid edit animal type params")
-
-// // Отсутсвие типов в животного
-// var ErrAnimalTypeListEmpty = errors.New("empty animal type list")
-
-// var ErrAnimalVisitLocationNotFound = errors.New("animal dont visited this location")
-
 type Animal struct {
 	ID                 int               `json:"id" db:"id"`
 	AnimalTypes        []int             `json:"animalTypes"`
@@ -286,19 +262,9 @@ func (s *AnimalSearchParams) Validate() error {
 	case *s.Size <= 0:
 		return err
 
-	// TODO: не в формате ISO-8601
-
 	default:
 		return nil
 	}
 
 }
 
-// func (a *AnimalSearchParamsTest) Bind(request *http.Request, i interface{}) {
-// 	queries :=request.URL.Query()
-
-// 	if v, ok := queries["startDateTime"]; !ok {
-// 		i.StartDateTime = v
-// 	}
-
-// }

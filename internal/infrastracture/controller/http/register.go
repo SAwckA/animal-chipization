@@ -8,7 +8,7 @@ import (
 )
 
 type registerUsecase interface {
-	Register(params domain.RegistrationDTO) (*domain.Account, error)
+	Register(params domain.RegistrationParams) (*domain.Account, error)
 }
 
 type RegisterHandler struct {
@@ -34,7 +34,7 @@ func (h *RegisterHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *RegisterHandler) CreateAccount(c *gin.Context) error {
-	var input domain.RegistrationDTO
+	var input domain.RegistrationParams
 
 	if err := c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
@@ -45,6 +45,6 @@ func (h *RegisterHandler) CreateAccount(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, account.Response())
+	c.JSON(http.StatusCreated, account.MapResponse())
 	return nil
 }
