@@ -6,13 +6,13 @@ import (
 )
 
 type animalRepository interface {
-	GetAnimal(animalID int) (*domain.Animal, error)
-	SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error)
-	CreateAnimal(params *domain.Animal) (int, error)
-	UpdateAnimal(animal domain.Animal) error
-	DeleteAnimal(animalID int) error
+	Animal(id int) (*domain.Animal, error)
+	Search(params *domain.AnimalSearchParams) ([]domain.Animal, error)
+	Create(params *domain.Animal) (int, error)
+	Update(animal *domain.Animal) error
+	Delete(id int) error
 
-	AttachTypeAnimal(animalID, typeID int) error
+	AddTypeAnimal(animalID, typeID int) error
 	EditAnimalType(animalID, oldTypeID, newTypeID int) error
 	DeleteAnimalType(animalID, typeID int) error
 }
@@ -26,18 +26,18 @@ func NewAnimalUsecase(repo animalRepository, typeRepo animalTypeRepository) *Ani
 	return &AnimalUsecase{repo: repo, typeRepo: typeRepo}
 }
 
-func (u *AnimalUsecase) GetAnimal(animalID int) (*domain.Animal, error) {
-	return u.repo.GetAnimal(animalID)
+func (u *AnimalUsecase) Animal(id int) (*domain.Animal, error) {
+	return u.repo.Animal(id)
 }
 
-func (u *AnimalUsecase) SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error) {
+func (u *AnimalUsecase) Search(params *domain.AnimalSearchParams) ([]domain.Animal, error) {
 	if err := params.Validate(); err != nil {
 		return nil, err
 	}
-	return u.repo.SearchAnimal(params)
+	return u.repo.Search(params)
 }
 
-func (u *AnimalUsecase) CreateAnimal(params domain.AnimalCreateParams) (*domain.Animal, error) {
+func (u *AnimalUsecase) Create(params *domain.AnimalCreateParams) (*domain.Animal, error) {
 
 	newAnimal, err := domain.NewAnimal(params)
 	if err != nil {
@@ -47,28 +47,24 @@ func (u *AnimalUsecase) CreateAnimal(params domain.AnimalCreateParams) (*domain.
 		}
 	}
 
-	id, err := u.repo.CreateAnimal(newAnimal)
+	id, err := u.repo.Create(newAnimal)
 	newAnimal.ID = id
+
 	return newAnimal, err
 }
-func (u *AnimalUsecase) UpdateAnimal(animalID int, params domain.AnimalUpdateParams) (*domain.Animal, error) {
+func (u *AnimalUsecase) Update(id int, params *domain.AnimalUpdateParams) (*domain.Animal, error) {
 
-	animal, err := u.repo.GetAnimal(animalID)
-
+	animal, err := u.repo.Animal(id)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := params.Validate(); err != nil {
-		return nil, err
-	}
+	animal.Length = params.Length
+	animal.Weight = params.Weight
+	animal.Height = params.Height
+	animal.Gender = params.Gender
 
-	animal.Lenght = *params.Lenght
-	animal.Weight = *params.Weight
-	animal.Height = *params.Height
-	animal.Gender = *params.Gender
-
-	if animal.LifeStatus == "DEAD" && *params.LifeStatus == "ALIVE" {
+	if animal.LifeStatus == "DEAD" && params.LifeStatus == "ALIVE" {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
 			SimplifiedErr: domain.ErrInvalidInput,
@@ -76,10 +72,10 @@ func (u *AnimalUsecase) UpdateAnimal(animalID int, params domain.AnimalUpdatePar
 		}
 	}
 
-	animal.ChipperID = *params.ChipperID
+	animal.ChipperID = params.ChipperID
 
 	if len(animal.VisitedLocations) > 0 {
-		if animal.VisitedLocations[0].LocationPointID == *params.ChippingLocationID {
+		if animal.VisitedLocations[0].LocationPointID == params.ChippingLocationID {
 			return nil, &domain.ApplicationError{
 				OriginalError: nil,
 				SimplifiedErr: domain.ErrInvalidInput,
@@ -87,9 +83,10 @@ func (u *AnimalUsecase) UpdateAnimal(animalID int, params domain.AnimalUpdatePar
 			}
 		}
 	}
-	animal.ChippingLocationId = *params.ChippingLocationID
 
-	if *params.LifeStatus == "DEAD" {
+	animal.ChippingLocationId = params.ChippingLocationID
+
+	if params.LifeStatus == "DEAD" {
 		if animal.DeathDateTime == nil {
 			deathTime := time.Now()
 			animal.DeathDateTime = &deathTime
@@ -97,15 +94,14 @@ func (u *AnimalUsecase) UpdateAnimal(animalID int, params domain.AnimalUpdatePar
 		animal.LifeStatus = "DEAD"
 	}
 
-	err = u.repo.UpdateAnimal(*animal)
+	err = u.repo.Update(animal)
 
 	return animal, err
 
 }
-func (u *AnimalUsecase) DeleteAnimal(animalID int) error {
+func (u *AnimalUsecase) Delete(id int) error {
 
-	animal, err := u.repo.GetAnimal(animalID)
-
+	animal, err := u.repo.Animal(id)
 	if err != nil {
 		return err
 	}
@@ -118,18 +114,18 @@ func (u *AnimalUsecase) DeleteAnimal(animalID int) error {
 		}
 	}
 
-	return u.repo.DeleteAnimal(animal.ID)
+	return u.repo.Delete(animal.ID)
 }
 
 func (u *AnimalUsecase) AddAnimalType(animalID, typeID int) (*domain.Animal, error) {
 
-	animal, err := u.repo.GetAnimal(animalID)
+	animal, err := u.repo.Animal(animalID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = u.typeRepo.Get(typeID)
+	_, err = u.typeRepo.AnimalType(typeID)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +138,7 @@ func (u *AnimalUsecase) AddAnimalType(animalID, typeID int) (*domain.Animal, err
 		}
 	}
 
-	if err := u.repo.AttachTypeAnimal(animalID, typeID); err != nil {
+	if err = u.repo.AddTypeAnimal(animalID, typeID); err != nil {
 		return nil, err
 	}
 
@@ -151,17 +147,14 @@ func (u *AnimalUsecase) AddAnimalType(animalID, typeID int) (*domain.Animal, err
 	return animal, nil
 }
 
-func (u *AnimalUsecase) EditAnimalType(animalID int, params domain.AnimalEditTypeParams) (*domain.Animal, error) {
+func (u *AnimalUsecase) EditAnimalType(animalID int, params *domain.AnimalEditTypeParams) (*domain.Animal, error) {
 
-	if err := params.Validate(); err != nil {
-		return nil, err
-	}
-	animal, err := u.repo.GetAnimal(animalID)
+	animal, err := u.repo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}
 
-	if contains := animal.AnimalTypesContains(*params.NewTypeID); contains {
+	if contains := animal.AnimalTypesContains(params.NewTypeID); contains {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
 			SimplifiedErr: domain.ErrAlreadyExist,
@@ -169,7 +162,7 @@ func (u *AnimalUsecase) EditAnimalType(animalID int, params domain.AnimalEditTyp
 		}
 	}
 
-	if contains := animal.AnimalTypesContains(*params.OldTypeID); !contains {
+	if contains := animal.AnimalTypesContains(params.OldTypeID); !contains {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
 			SimplifiedErr: domain.ErrNotFound,
@@ -177,28 +170,28 @@ func (u *AnimalUsecase) EditAnimalType(animalID int, params domain.AnimalEditTyp
 		}
 	}
 
-	_, err = u.typeRepo.Get(*params.NewTypeID)
+	_, err = u.typeRepo.AnimalType(params.NewTypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = u.typeRepo.Get(*params.OldTypeID)
+	_, err = u.typeRepo.AnimalType(params.OldTypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := u.repo.EditAnimalType(animal.ID, *params.OldTypeID, *params.NewTypeID); err != nil {
+	if err = u.repo.EditAnimalType(animal.ID, params.OldTypeID, params.NewTypeID); err != nil {
 		return nil, err
 	}
 
-	animal.ReplaceAnimalType(*params.OldTypeID, *params.NewTypeID)
+	animal.ReplaceAnimalType(params.OldTypeID, params.NewTypeID)
 
 	return animal, nil
 }
 
 func (u *AnimalUsecase) DeleteAnimalType(animalID, typeID int) (*domain.Animal, error) {
 
-	animal, err := u.repo.GetAnimal(animalID)
+	animal, err := u.repo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}

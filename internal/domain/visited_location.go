@@ -4,11 +4,10 @@ import (
 	"time"
 )
 
-// var ErrInvalidParams = errors.New("invalid params")
-// var ErrDeadAnimal = errors.New("animal is dead")
-// var ErrLocationPointEqualChippingLocation = errors.New("attempt to add a location point equal to the chipping point")
-// var ErrAlreadyLocated = errors.New("attempt to add a location point where the animal is already located")
-// var ErrEqualNewVisitLocation = errors.New("cant update visit location point to same location point")
+const (
+	VisitedLocationsDefaultSize       = 10
+	VisitedLocationsSearchDefaultFrom = 0
+)
 
 type VisitedLocation struct {
 	ID              int       `json:"id"`
@@ -24,7 +23,7 @@ func NewVisitedLocation(pointID int) *VisitedLocation {
 	}
 }
 
-func (v *VisitedLocation) Response() map[string]interface{} {
+func (v *VisitedLocation) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"id":                           v.ID,
 		"dateTimeOfVisitLocationPoint": v.DateTime.Format(time.RFC3339),
@@ -33,43 +32,24 @@ func (v *VisitedLocation) Response() map[string]interface{} {
 }
 
 type UpdateVisitedLocationDTO struct {
-	VisitedLocationPointID *int `json:"visitedLocationPointId"`
-	LocationPointID        *int `json:"locationPointId"`
+	VisitedLocationPointID int `json:"visitedLocationPointId" binding:"gt=0,required"`
+	LocationPointID        int `json:"locationPointId" binding:"gt=0,required"`
 }
 
-func (u *UpdateVisitedLocationDTO) Validate() error {
-	err := &ApplicationError{
-		OriginalError: nil,
-		SimplifiedErr: ErrInvalidInput,
-		Description:   "invalid visited location params",
-	}
-
-	switch {
-	case u.VisitedLocationPointID == nil || *u.VisitedLocationPointID <= 0:
-		return err
-
-	case u.LocationPointID == nil || *u.LocationPointID <= 0:
-		return err
-
-	default:
-		return nil
-	}
-}
-
-type SearchVisitedLocationDTO struct {
+type SearchVisitedLocation struct {
 	StartDateTime *time.Time `form:"startDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
 	EndDateTime   *time.Time `form:"endDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
 	From          *int       `form:"from"`
 	Size          *int       `form:"size"`
 }
 
-func (s *SearchVisitedLocationDTO) Validate() error {
+func (s *SearchVisitedLocation) Validate() error {
 	err := &ApplicationError{
 		OriginalError: nil,
 		SimplifiedErr: ErrInvalidInput,
 		Description:   "validation error",
 	}
-	var defaultFrom, defaultSize = 0, 10
+	var defaultFrom, defaultSize = VisitedLocationsSearchDefaultFrom, VisitedLocationsDefaultSize
 
 	if s.From == nil {
 		s.From = &defaultFrom
@@ -78,16 +58,9 @@ func (s *SearchVisitedLocationDTO) Validate() error {
 		s.Size = &defaultSize
 	}
 
-	switch {
-	case *s.From < 0:
+	if *s.From < 0 || *s.Size <= 0 {
 		return err
-	case *s.Size <= 0:
-		return err
-
-	// TODO: не в формате ISO-8601
-
-	default:
-		return nil
 	}
 
+	return nil
 }

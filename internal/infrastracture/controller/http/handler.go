@@ -15,10 +15,10 @@ func errorHandlerWrap(next func(c *gin.Context) error) gin.HandlerFunc {
 		err := next(c)
 
 		switch errors.Unwrap(err) {
-		case domain.ErrInvalidInput, domain.ErrLinked:
+		case domain.ErrInvalidInput:
 			badRequest(c, err.Error())
 
-		case domain.ErrBadDatabaseOut, domain.ErrAlreadyExist:
+		case domain.ErrAlreadyExist:
 			conflictResponse(c, err.Error())
 
 		case domain.ErrNotFound:

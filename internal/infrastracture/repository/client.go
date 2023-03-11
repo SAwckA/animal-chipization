@@ -1,49 +1,70 @@
 package repository
 
 import (
-	"context"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/sirupsen/logrus"
+	"time"
 
 	_ "github.com/jackc/pgx/stdlib"
 	"github.com/jmoiron/sqlx"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Инициализация нового соединения к mongo
-func NewMongoClient(connString string) (*mongo.Client, error) {
-
-	// Новый клиент
-	client, err := mongo.NewClient(options.Client().ApplyURI(connString))
-
-	if err != nil {
-		return nil, err
-	}
-
-	// Инициализация соединения
-	err = client.Connect(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-
-	// Проверка соединения
-	err = client.Ping(context.TODO(), nil)
-
-	return client, err
+type postgresConfig interface {
+	DataSourceString() string
+	ConnString() string
 }
 
-func NewPostgresDB(host, port, user, dbname, password, sslmode string) (*sqlx.DB, error) {
-	db, err := sqlx.Open("pgx", fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=%s",
-		host, port, user, dbname, password, sslmode))
+func NewPostgresDB(config postgresConfig) (db *sqlx.DB, err error) {
+	var maxRetries = 5
+	var timeoutRetry = 2 * time.Second
+
+	for i := 1; i <= maxRetries; i++ {
+		db, err = sqlx.Open("pgx", config.DataSourceString())
+
+		if err != nil {
+			logrus.Warnln(fmt.Sprintf("[RETRY %d OF %d] cause: %s", i, maxRetries, err.Error()))
+			time.Sleep(timeoutRetry)
+			continue
+		}
+
+		err = db.Ping()
+		if err != nil {
+			logrus.Warnln(fmt.Sprintf("[RETRY %d OF %d] cause: %s", i, maxRetries, err.Error()))
+			time.Sleep(timeoutRetry)
+			continue
+		}
+		upMigrations(config.ConnString())
+		return
+	}
+	return
+}
+
+func upMigrations(connString string) {
+	logrus.Infof("Start migrations up")
+	m, err := migrate.New(
+		"file://migrations",
+		connString,
+	)
 
 	if err != nil {
-		return nil, err
+		logrus.Fatalf("Unable connect to database: %s", err.Error())
 	}
 
-	errPing := db.Ping()
-	if errPing != nil {
-		return nil, errPing
+	err = m.Up()
+
+	if err == migrate.ErrNoChange {
+		logrus.Infof("Apply migrations: %s", err.Error())
+		return
 	}
 
-	return db, nil
+	if err != nil {
+		logrus.Fatalf("Failed to up migrations, cause: %s", err.Error())
+	}
+
+	if err == nil {
+		logrus.Infof("Apply migrations: success")
+	}
 }

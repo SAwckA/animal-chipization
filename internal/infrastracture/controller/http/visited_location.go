@@ -12,9 +12,9 @@ const visitedPointIDParam = "visitedPointId"
 
 type visitedLocationUsecase interface {
 	Create(animalID, pointID int) (*domain.VisitedLocation, error)
-	Update(animalID int, location domain.UpdateVisitedLocationDTO) (*domain.VisitedLocation, error)
+	Update(animalID int, location *domain.UpdateVisitedLocationDTO) (*domain.VisitedLocation, error)
 	Delete(animalID int, locationID int) error
-	Search(animalID int, params domain.SearchVisitedLocationDTO) (*[]domain.VisitedLocation, error)
+	Search(animalID int, params *domain.SearchVisitedLocation) ([]domain.VisitedLocation, error)
 }
 
 type VisitedLocationsHandler struct {
@@ -70,18 +70,17 @@ func (h *VisitedLocationsHandler) create(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, visitedLocation.Response())
+	c.JSON(http.StatusCreated, visitedLocation.Map())
 	return nil
 }
 
 func (h *VisitedLocationsHandler) update(c *gin.Context) error {
-
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
 
-	var input domain.UpdateVisitedLocationDTO
+	var input *domain.UpdateVisitedLocationDTO
 	if err = c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
 	}
@@ -91,12 +90,11 @@ func (h *VisitedLocationsHandler) update(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, location.Response())
+	c.JSON(http.StatusOK, location.Map())
 	return nil
 }
 
 func (h *VisitedLocationsHandler) delete(c *gin.Context) error {
-
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
@@ -122,20 +120,22 @@ func (h *VisitedLocationsHandler) search(c *gin.Context) error {
 		return err
 	}
 
-	var input domain.SearchVisitedLocationDTO
+	var input domain.SearchVisitedLocation
 	if err := c.BindQuery(&input); err != nil {
 		return NewErrBind(err)
 	}
 
-	locations, err := h.usecase.Search(animalID, input)
+	locations, err := h.usecase.Search(animalID, &input)
 	if err != nil {
 		return err
 	}
 
 	resp := make([]map[string]interface{}, 0)
-	tmp := *locations
-	for _, v := range tmp {
-		resp = append(resp, v.Response())
+
+	if locations != nil {
+		for _, v := range locations {
+			resp = append(resp, v.Map())
+		}
 	}
 
 	c.JSON(http.StatusOK, resp)

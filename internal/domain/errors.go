@@ -2,14 +2,12 @@ package domain
 
 import "errors"
 
-var ErrInvalidInput = errors.New("invalid input")
-var ErrLinked = errors.New("entity linked")
-var ErrConflict = errors.New("data conflict")
-var ErrAlreadyExist = errors.New("already exist")
-var ErrBadDatabaseOut = errors.New("invalid database out")
-var ErrNotFound = errors.New("not found")
-var ErrUnknown = errors.New("unknown error")
-var ErrForbidden = errors.New("forbidden")
+var ErrInvalidInput = errors.New("invalid input") // Некорректные входные данных (нельзя обработать, ввиду логики)
+var ErrConflict = errors.New("data conflict")     // Конфликт данных
+var ErrAlreadyExist = errors.New("already exist") // Уже существует
+var ErrNotFound = errors.New("not found")         // Сущность не найдена
+var ErrForbidden = errors.New("forbidden")        // Доступ запрещён
+var ErrUnknown = errors.New("unknown error")      // Неизвестная ошибка
 
 // ApplicationError обогощение ошибки, для упрощенной обработки в контроллерах
 type ApplicationError struct {
@@ -38,7 +36,7 @@ func (e *ApplicationError) Error() string {
 		return e.OriginalError.Error() + ": " + e.Description
 	}
 
-	return e.OriginalError.Error() + " -> " + e.SimplifiedErr.Error() + ": " + e.Description
+	return "[" + e.SimplifiedErr.Error() + "] " + e.Description
 }
 
 func (e *ApplicationError) Unwrap() error {
