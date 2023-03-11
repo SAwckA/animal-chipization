@@ -6,14 +6,14 @@ const (
 )
 
 type Account struct {
-	ID        int    `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	Email     string `json:"email"`
-	Password  string `json:"password"`
+	ID        int
+	FirstName string
+	LastName  string
+	Email     string
+	Password  string
 }
 
-func (a *Account) MapResponse() map[string]interface{} {
+func (a *Account) Map() map[string]interface{} {
 	return map[string]interface{}{
 		"id":        a.ID,
 		"firstName": a.FirstName,

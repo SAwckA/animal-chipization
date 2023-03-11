@@ -64,8 +64,9 @@ func internalError(c *gin.Context, err error) {
 		err.(*domain.ApplicationError).SimplifiedErr,
 		err.(*domain.ApplicationError).Description,
 	)
-	
+
 	defer func() {
 		_ = recover()
+		logrus.Errorf(err.Error())
 	}()
 }

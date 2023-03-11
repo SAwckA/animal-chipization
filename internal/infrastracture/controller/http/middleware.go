@@ -45,7 +45,6 @@ func (m *AuthMiddleware) checkAuthHeaderMiddleware(c *gin.Context) {
 // authMiddleware Обработчик аутентификации, отвечает за аутентификацию
 // 		*Обязательная аутентификация
 func (m *AuthMiddleware) authMiddleware(c *gin.Context) {
-
 	email, password, ok := getCredentials(c.Copy())
 	if !ok {
 		unauthorizedResponse(c, "no credentials")
@@ -64,7 +63,6 @@ func (m *AuthMiddleware) authMiddleware(c *gin.Context) {
 
 // getCredentials Нужен для получения авторизационных данных из заголовка запроса
 func getCredentials(cCp *gin.Context) (string, string, bool) {
-
 	if token := strings.Split(cCp.GetHeader("Authorization"), " "); len(token) == 2 || token[0] == "Basic" {
 		rawToken := token[1]
 

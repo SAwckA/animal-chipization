@@ -36,26 +36,26 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	{
 		animal.Use(h.middleware.checkAuthHeaderMiddleware)
 		animal.GET(fmt.Sprintf("/:%s", animalIDParam),
-			errorHandlerWrap(h.getAnimal),
+			errorHandlerWrap(h.animal),
 		)
 
 		animal.GET("/search",
-			errorHandlerWrap(h.searchAnimal),
+			errorHandlerWrap(h.search),
 		)
 
 		animal.POST("",
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.createAnimal),
+			errorHandlerWrap(h.create),
 		)
 
 		animal.PUT(fmt.Sprintf("/:%s", animalIDParam),
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.updateAnimal),
+			errorHandlerWrap(h.update),
 		)
 
 		animal.DELETE(fmt.Sprintf("/:%s", animalIDParam),
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.deleteAnimal),
+			errorHandlerWrap(h.delete),
 		)
 
 		types := animal.Group(fmt.Sprintf(":%s/types", animalIDParam))
@@ -80,8 +80,7 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	return router
 }
 
-func (h *AnimalHandler) getAnimal(c *gin.Context) error {
-
+func (h *AnimalHandler) animal(c *gin.Context) error {
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
@@ -96,8 +95,7 @@ func (h *AnimalHandler) getAnimal(c *gin.Context) error {
 	return nil
 }
 
-func (h *AnimalHandler) searchAnimal(c *gin.Context) error {
-
+func (h *AnimalHandler) search(c *gin.Context) error {
 	var input domain.AnimalSearchParams
 	if err := c.BindQuery(&input); err != nil {
 		return NewErrBind(err)
@@ -120,8 +118,7 @@ func (h *AnimalHandler) searchAnimal(c *gin.Context) error {
 	return nil
 }
 
-func (h *AnimalHandler) createAnimal(c *gin.Context) error {
-
+func (h *AnimalHandler) create(c *gin.Context) error {
 	var input *domain.AnimalCreateParams
 	if err := c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
@@ -137,8 +134,7 @@ func (h *AnimalHandler) createAnimal(c *gin.Context) error {
 
 }
 
-func (h *AnimalHandler) updateAnimal(c *gin.Context) error {
-
+func (h *AnimalHandler) update(c *gin.Context) error {
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
@@ -158,8 +154,7 @@ func (h *AnimalHandler) updateAnimal(c *gin.Context) error {
 	return nil
 }
 
-func (h *AnimalHandler) deleteAnimal(c *gin.Context) error {
-
+func (h *AnimalHandler) delete(c *gin.Context) error {
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return NewErrBind(err)
@@ -175,7 +170,6 @@ func (h *AnimalHandler) deleteAnimal(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) addAnimalType(c *gin.Context) error {
-
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
@@ -196,7 +190,6 @@ func (h *AnimalHandler) addAnimalType(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) editAnimalType(c *gin.Context) error {
-
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
@@ -217,7 +210,6 @@ func (h *AnimalHandler) editAnimalType(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) deleteAnimalType(c *gin.Context) error {
-
 	animalID, err := validateID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err

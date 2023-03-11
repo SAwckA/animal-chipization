@@ -51,7 +51,6 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *AccountHandler) accountByID(c *gin.Context) error {
-
 	accountID, err := validateID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err
@@ -62,12 +61,11 @@ func (h *AccountHandler) accountByID(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, account.MapResponse())
+	c.JSON(http.StatusOK, account.Map())
 	return nil
 }
 
 func (h *AccountHandler) search(c *gin.Context) error {
-
 	var input domain.SearchAccount
 	if err := c.BindQuery(&input); err != nil {
 		return err
@@ -82,7 +80,7 @@ func (h *AccountHandler) search(c *gin.Context) error {
 
 	if result != nil {
 		for _, v := range result {
-			resp = append(resp, v.MapResponse())
+			resp = append(resp, v.Map())
 		}
 	}
 
@@ -92,7 +90,6 @@ func (h *AccountHandler) search(c *gin.Context) error {
 }
 
 func (h *AccountHandler) update(c *gin.Context) error {
-
 	accountID, err := validateID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err
@@ -111,12 +108,11 @@ func (h *AccountHandler) update(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, result.MapResponse())
+	c.JSON(http.StatusOK, result.Map())
 	return nil
 }
 
 func (h *AccountHandler) delete(c *gin.Context) error {
-
 	accountID, err := validateID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err

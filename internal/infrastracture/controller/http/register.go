@@ -35,7 +35,6 @@ func (h *RegisterHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 func (h *RegisterHandler) CreateAccount(c *gin.Context) error {
 	var input domain.RegistrationParams
-
 	if err := c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
 	}
@@ -45,6 +44,6 @@ func (h *RegisterHandler) CreateAccount(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, account.MapResponse())
+	c.JSON(http.StatusCreated, account.Map())
 	return nil
 }
