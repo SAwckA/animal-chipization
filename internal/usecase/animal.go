@@ -125,7 +125,7 @@ func (u *AnimalUsecase) AddAnimalType(animalID, typeID int) (*domain.Animal, err
 		return nil, err
 	}
 
-	_, err = u.typeRepo.Get(typeID)
+	_, err = u.typeRepo.AnimalType(typeID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +170,12 @@ func (u *AnimalUsecase) EditAnimalType(animalID int, params *domain.AnimalEditTy
 		}
 	}
 
-	_, err = u.typeRepo.Get(params.NewTypeID)
+	_, err = u.typeRepo.AnimalType(params.NewTypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = u.typeRepo.Get(params.OldTypeID)
+	_, err = u.typeRepo.AnimalType(params.OldTypeID)
 	if err != nil {
 		return nil, err
 	}

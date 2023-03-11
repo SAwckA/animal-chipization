@@ -20,12 +20,11 @@ func NewAnimalTypeRepository(db *sqlx.DB) *AnimalTypeRepository {
 	return &AnimalTypeRepository{db: db}
 }
 
-func (r *AnimalTypeRepository) Get(id int) (*domain.AnimalType, error) {
+func (r *AnimalTypeRepository) AnimalType(id int) (*domain.AnimalType, error) {
 	query := fmt.Sprintf(`select id, type from %s where id = $1`, animalTypeTable)
 
 	var animalType domain.AnimalType
-	row := r.db.QueryRow(query, id)
-	if err := row.Scan(&animalType.ID, &animalType.Type); err != nil {
+	if err := r.db.QueryRow(query, id).Scan(&animalType.ID, &animalType.Type); err != nil {
 		return nil, &domain.ApplicationError{
 			OriginalError: err,
 			SimplifiedErr: domain.ErrNotFound,
@@ -40,9 +39,7 @@ func (r *AnimalTypeRepository) Create(typeName string) (int, error) {
 	query := fmt.Sprintf(`insert into %s(type) values ($1) returning id`, animalTypeTable)
 
 	var typeID int
-	row := r.db.QueryRow(query, typeName)
-
-	if err := row.Scan(&typeID); err != nil {
+	if err := r.db.QueryRow(query, typeName).Scan(&typeID); err != nil {
 		if strings.Contains(err.Error(), uniqueTypeConstraint) {
 			return 0, &domain.ApplicationError{
 				OriginalError: err,
@@ -68,7 +65,6 @@ func (r *AnimalTypeRepository) Update(id int, typeName string) error {
 	`, animalTypeTable)
 
 	res, err := r.db.Exec(query, typeName, id)
-
 	if err != nil {
 		if strings.Contains(err.Error(), uniqueTypeConstraint) {
 			return &domain.ApplicationError{
@@ -102,7 +98,6 @@ func (r *AnimalTypeRepository) Delete(id int) error {
 	`, animalTypeTable)
 
 	res, err := r.db.Exec(query, id)
-
 	if err != nil {
 		if strings.Contains(err.Error(), animalTypeFkey) {
 			return &domain.ApplicationError{

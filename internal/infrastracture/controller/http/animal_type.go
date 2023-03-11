@@ -11,7 +11,7 @@ import (
 const typeParam = "typeId"
 
 type animalTypeUsecase interface {
-	Get(id int) (*domain.AnimalType, error)
+	AnimalType(id int) (*domain.AnimalType, error)
 	Create(typeName string) (*domain.AnimalType, error)
 	Update(id int, typeName string) (*domain.AnimalType, error)
 	Delete(id int) error
@@ -32,43 +32,42 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	{
 		animalTypes.Use(h.middleware.checkAuthHeaderMiddleware)
 		animalTypes.GET(fmt.Sprintf("/:%s", typeParam),
-			errorHandlerWrap(h.getAnimalType),
+			errorHandlerWrap(h.animalType),
 		)
 		animalTypes.POST("",
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.createAnimalType),
+			errorHandlerWrap(h.create),
 		)
 		animalTypes.PUT(fmt.Sprintf("/:%s", typeParam),
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.updateAnimalType),
+			errorHandlerWrap(h.update),
 		)
 		animalTypes.DELETE(fmt.Sprintf("/:%s", typeParam),
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.deleteAnimalType),
+			errorHandlerWrap(h.delete),
 		)
 	}
 
 	return router
 }
 
-func (h *AnimalTypeHandler) getAnimalType(c *gin.Context) error {
+func (h *AnimalTypeHandler) animalType(c *gin.Context) error {
 	typeID, err := validateID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
 
-	animalType, err := h.usecase.Get(typeID)
+	animalType, err := h.usecase.AnimalType(typeID)
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, animalType.Response())
+	c.JSON(http.StatusOK, animalType.Map())
 	return nil
 }
 
-func (h *AnimalTypeHandler) createAnimalType(c *gin.Context) error {
-	var input domain.AnimalTypeDTO
-
+func (h *AnimalTypeHandler) create(c *gin.Context) error {
+	var input domain.AnimalTypeCreate
 	if err := c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
 	}
@@ -78,19 +77,18 @@ func (h *AnimalTypeHandler) createAnimalType(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, animalType.Response())
+	c.JSON(http.StatusCreated, animalType.Map())
 	return nil
 }
 
-func (h *AnimalTypeHandler) updateAnimalType(c *gin.Context) error {
-	var input domain.AnimalTypeDTO
-
+func (h *AnimalTypeHandler) update(c *gin.Context) error {
 	typeID, err := validateID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
 
-	if err := c.BindJSON(&input); err != nil {
+	var input domain.AnimalTypeCreate
+	if err = c.BindJSON(&input); err != nil {
 		return NewErrBind(err)
 	}
 
@@ -99,11 +97,11 @@ func (h *AnimalTypeHandler) updateAnimalType(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, animalType.Response())
+	c.JSON(http.StatusOK, animalType.Map())
 	return nil
 }
 
-func (h *AnimalTypeHandler) deleteAnimalType(c *gin.Context) error {
+func (h *AnimalTypeHandler) delete(c *gin.Context) error {
 	typeID, err := validateID(c.Copy(), typeParam)
 	if err != nil {
 		return err
