@@ -2,8 +2,10 @@ create table public.account (
     id serial primary key,
     firstName varchar(255),
     lastName varchar(255),
-    email varchar(255) unique,
-    password varchar(255)
+    email varchar(255),
+    password varchar(255),
+
+    constraint account_email_key unique(email)
 );
 
 create table public.location (
@@ -11,14 +13,14 @@ create table public.location (
     latitude double precision,
     longitude double precision,
 
-    constraint unique_location_points unique(latitude, longitude)
+    constraint location_latitude_longitude_key unique(latitude, longitude)
 );
 
 create table public.animal_type (
     id bigserial primary key,
     type varchar(255),
 
-    constraint unique_type unique(type)
+    constraint animal_type_type_key unique(type)
 );
 
 create table public.animal (

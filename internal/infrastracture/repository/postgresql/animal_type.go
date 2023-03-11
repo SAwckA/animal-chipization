@@ -10,9 +10,9 @@ import (
 
 const (
 	animalTypeTable      = "public.animal_type"
-	uniqueTypeConstraint = "unique_type"
-	
-	animalTypeFkey = "animal_types_list_type_id_fkey"
+	uniqueTypeConstraint = "animal_type_type_key"
+
+	animalTypeFKey = "animal_types_list_type_id_fkey"
 )
 
 type AnimalTypeRepository struct {
@@ -102,7 +102,7 @@ func (r *AnimalTypeRepository) Delete(id int) error {
 
 	res, err := r.db.Exec(query, id)
 	if err != nil {
-		if strings.Contains(err.Error(), animalTypeFkey) {
+		if strings.Contains(err.Error(), animalTypeFKey) {
 			return &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrInvalidInput,
