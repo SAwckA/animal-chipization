@@ -61,6 +61,7 @@ func Run() error {
 
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		_ = v.RegisterValidation("exclude_whitespace", http.ExcludeWhitespace)
+		_ = v.RegisterValidation("allowed_strings", http.AllowedStrings)
 	}
 
 	server := controller.NewHTTPServer(appConfig.HttpConfig.Port, router)

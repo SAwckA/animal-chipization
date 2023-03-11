@@ -24,7 +24,7 @@ func NewAnimalRepository(db *sqlx.DB) *AnimalRepository {
 	return &AnimalRepository{db: db}
 }
 
-func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
+func (r *AnimalRepository) Animal(id int) (*domain.Animal, error) {
 
 	query := fmt.Sprintf(`
 	with locations as (
@@ -65,7 +65,7 @@ func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
 		animalTable,
 	)
 
-	row := r.db.QueryRow(query, animalID)
+	row := r.db.QueryRow(query, id)
 
 	var typesString *string
 	var visitedLocationString *string
@@ -74,7 +74,7 @@ func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
 	if err := row.Scan(
 		&animal.ID,
 		&animal.Weight,
-		&animal.Lenght,
+		&animal.Length,
 		&animal.Height,
 		&animal.Gender,
 		&animal.LifeStatus,
@@ -107,7 +107,9 @@ func (r *AnimalRepository) GetAnimal(animalID int) (*domain.Animal, error) {
 	return &animal, nil
 }
 
-func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]domain.Animal, error) {
+// Search
+// TODO: Нужен другой способ создавать sql для всех запросов на поиск по параметрам :)
+func (r *AnimalRepository) Search(params *domain.AnimalSearchParams) ([]domain.Animal, error) {
 
 	var searchParams []string
 	var searchData []interface{}
@@ -200,7 +202,6 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 	)
 
 	rows, err := r.db.Query(query, searchData...)
-
 	if err != nil {
 		return nil, &domain.ApplicationError{
 			OriginalError: err,
@@ -218,7 +219,7 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 		if err := rows.Scan(
 			&animal.ID,
 			&animal.Weight,
-			&animal.Lenght,
+			&animal.Length,
 			&animal.Height,
 			&animal.Gender,
 			&animal.LifeStatus,
@@ -237,13 +238,13 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 		}
 
 		if typesString != nil {
-			json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
+			_ = json.Unmarshal([]byte(*typesString), &animal.AnimalTypes)
 		} else {
 			animal.AnimalTypes = make([]int, 0)
 		}
 
 		if visitedLocationsString != nil {
-			json.Unmarshal([]byte(*visitedLocationsString), &animal.VisitedLocations)
+			_ = json.Unmarshal([]byte(*visitedLocationsString), &animal.VisitedLocations)
 		} else {
 			animal.VisitedLocations = make([]domain.VisitedLocation, 0)
 		}
@@ -251,19 +252,19 @@ func (r *AnimalRepository) SearchAnimal(params *domain.AnimalSearchParams) (*[]d
 		res = append(res, animal)
 	}
 
-	return &res, nil
+	return res, nil
 }
 
-func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
+func (r *AnimalRepository) Create(animal *domain.Animal) (int, error) {
 
 	tx, err := r.db.BeginTx(context.TODO(), nil)
 	defer func() {
 		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return
 		}
 
-		tx.Commit()
+		_ = tx.Commit()
 	}()
 
 	if err != nil {
@@ -288,7 +289,7 @@ func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
 
 	row := tx.QueryRow(query,
 		animal.Weight,
-		animal.Lenght,
+		animal.Length,
 		animal.Height,
 		animal.Gender,
 		animal.LifeStatus,
@@ -336,8 +337,8 @@ func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
 		argsQuery = append(argsQuery, fmt.Sprintf(`(%d, $%d)`, id, index+1))
 
 	}
-	_, err = tx.Exec(fmt.Sprintf("%s %s", baseQuery, strings.Join(argsQuery, ",")), argValues...)
 
+	_, err = tx.Exec(fmt.Sprintf("%s %s", baseQuery, strings.Join(argsQuery, ",")), argValues...)
 	if err != nil {
 		if strings.Contains(err.Error(), "animal_types_list_type_id_fkey") {
 			return 0, &domain.ApplicationError{
@@ -355,10 +356,7 @@ func (r *AnimalRepository) CreateAnimal(animal *domain.Animal) (int, error) {
 	return id, nil
 }
 
-// UpdateAnimal не обновляет поля AnimalType и VisitedLocations,
-// для этого используются другие методы предназначенные для
-// изменений только этих полей
-func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
+func (r *AnimalRepository) Update(animal *domain.Animal) error {
 
 	query := fmt.Sprintf(`
 	update %s
@@ -378,7 +376,7 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 	`, animalTable)
 
 	res, err := r.db.Exec(query,
-		animal.Lenght,
+		animal.Length,
 		animal.Weight,
 		animal.Height,
 		animal.Gender,
@@ -388,7 +386,6 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 		animal.DeathDateTime,
 		animal.ID,
 	)
-
 	if err != nil {
 		if strings.Contains(err.Error(), "animal_chipperid_fkey") {
 			return &domain.ApplicationError{
@@ -414,7 +411,6 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 	}
 
 	affected, err := res.RowsAffected()
-
 	if err != nil {
 		return err
 	}
@@ -430,12 +426,11 @@ func (r *AnimalRepository) UpdateAnimal(animal domain.Animal) error {
 	return nil
 }
 
-func (r *AnimalRepository) DeleteAnimal(animalID int) error {
+func (r *AnimalRepository) Delete(id int) error {
 
 	query := fmt.Sprintf(`delete from %s where id = $1`, animalTable)
 
-	res, err := r.db.Exec(query, animalID)
-
+	res, err := r.db.Exec(query, id)
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
@@ -455,7 +450,7 @@ func (r *AnimalRepository) DeleteAnimal(animalID int) error {
 	return nil
 }
 
-func (r *AnimalRepository) AttachTypeAnimal(animalID, typeID int) error {
+func (r *AnimalRepository) AddTypeAnimal(animalID, typeID int) error {
 	query := fmt.Sprintf(`
 	insert into %s(animal_id, type_id) 
 		values 
@@ -463,7 +458,6 @@ func (r *AnimalRepository) AttachTypeAnimal(animalID, typeID int) error {
 	`, animalTypesListTable)
 
 	_, err := r.db.Exec(query, animalID, typeID)
-
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
@@ -486,7 +480,6 @@ func (r *AnimalRepository) EditAnimalType(animalID, oldTypeID, newTypeID int) er
 	`, animalTypesListTable)
 
 	_, err := r.db.Exec(query, newTypeID, animalID, oldTypeID)
-
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
@@ -509,7 +502,6 @@ func (r *AnimalRepository) DeleteAnimalType(animalID, typeID int) error {
 	`, animalTypesListTable)
 
 	_, err := r.db.Exec(query, animalID, typeID)
-
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,

@@ -29,7 +29,7 @@ func NewVisitedLocationUsecase(repo visitedLocationRepository, locatoinRepo loca
 // Добавление точки локации, посещенной животным
 //
 func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedLocation, error) {
-	animal, err := u.animalRepo.GetAnimal(animalID)
+	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 		return nil, err
 	}
 
-	animal, err := u.animalRepo.GetAnimal(animalID)
+	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 	}
 
 	if len(animal.VisitedLocations) > 0 {
-		pos, err := animal.FindVisitedLocaionPos(*newLocation.VisitedLocationPointID)
+		pos, err := animal.FindVisitedLocationPos(*newLocation.VisitedLocationPointID)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +158,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 // Удаление посещённой точки локации животного
 func (u *VisitedLocationUsecase) Delete(animalID int, locatoinID int) error {
 	// Животное с animalId не найдено
-	animal, err := u.animalRepo.GetAnimal(animalID)
+	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (u *VisitedLocationUsecase) Delete(animalID int, locatoinID int) error {
 		return err
 	}
 	// У животного нет объекта с информацией о посещенной точке локации с visitedPointId
-	_, err = animal.FindVisitedLocaionPos(locatoinID)
+	_, err = animal.FindVisitedLocationPos(locatoinID)
 
 	if err != nil {
 		return err
@@ -178,7 +178,7 @@ func (u *VisitedLocationUsecase) Delete(animalID int, locatoinID int) error {
 	//TODO: (Если удаляется первая посещенная точка локации, а вторая точка совпадает с точкой чипирования, то она удаляется автоматически)
 
 	if len(animal.VisitedLocations) >= 2 {
-		pos, err := animal.FindVisitedLocaionPos(locatoinID)
+		pos, err := animal.FindVisitedLocationPos(locatoinID)
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func (u *VisitedLocationUsecase) Search(animalID int, params domain.SearchVisite
 	if err := params.Validate(); err != nil {
 		return nil, err
 	}
-	_, err := u.animalRepo.GetAnimal(animalID)
+	_, err := u.animalRepo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}

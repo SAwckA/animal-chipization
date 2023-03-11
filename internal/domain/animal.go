@@ -4,22 +4,27 @@ import (
 	"time"
 )
 
+const (
+	AnimalSearchDefaultSize = 10
+	AnimalSearchDefaultFrom = 0
+)
+
 type Animal struct {
-	ID                 int               `json:"id" db:"id"`
-	AnimalTypes        []int             `json:"animalTypes"`
-	Lenght             float32           `json:"lenght" db:"lenght"`
-	Weight             float32           `json:"weight" db:"weight"`
-	Height             float32           `json:"height" db:"height"`
-	Gender             string            `json:"gender" db:"gender"`
-	LifeStatus         string            `json:"lifeStatus" db:"lifestatus"`
-	ChippingDateTime   time.Time         `json:"chippinDateTime" db:"chippinglocationid"`
-	ChipperID          int               `json:"chippedId" db:"chipperid"`
-	ChippingLocationId int               `json:"chippingLocationId" db:"chippinglocationid"`
-	VisitedLocations   []VisitedLocation `json:"visitedLocations" db:"animaltypes"`
-	DeathDateTime      *time.Time        `json:"deathDateTime" db:"deathdatetime"`
+	ID                 int
+	AnimalTypes        []int
+	Length             float32
+	Weight             float32
+	Height             float32
+	Gender             string
+	LifeStatus         string
+	ChippingDateTime   time.Time
+	ChipperID          int
+	ChippingLocationId int
+	VisitedLocations   []VisitedLocation
+	DeathDateTime      *time.Time
 }
 
-func (a *Animal) FindVisitedLocaionPos(id int) (int, error) {
+func (a *Animal) FindVisitedLocationPos(id int) (int, error) {
 	for i, v := range a.VisitedLocations {
 		if v.ID == id {
 			return i, nil
@@ -60,7 +65,7 @@ func (a *Animal) RemoveAnimalType(typeID int) {
 	}
 }
 
-func (a *Animal) Response() map[string]interface{} {
+func (a *Animal) Map() map[string]interface{} {
 	var visitedLocations = make([]int, 0)
 
 	for _, v := range a.VisitedLocations {
@@ -70,7 +75,7 @@ func (a *Animal) Response() map[string]interface{} {
 	resp := map[string]interface{}{
 		"id":                 a.ID,
 		"animalTypes":        a.AnimalTypes,
-		"length":             a.Lenght,
+		"length":             a.Length,
 		"weight":             a.Weight,
 		"height":             a.Height,
 		"gender":             a.Gender,
@@ -90,23 +95,33 @@ func (a *Animal) Response() map[string]interface{} {
 	return resp
 }
 
-type AnimalCreateParams struct {
-	AnimalTypes        *[]int   `json:"animalTypes"`
-	Lenght             *float32 `json:"length"`
-	Weight             *float32 `json:"weight"`
-	Height             *float32 `json:"height"`
-	Gender             *string  `json:"gender"`
-	ChipperID          *int     `json:"chipperId"`
-	ChippingLocationID *int     `json:"chippingLocationId"`
+func NewAnimal(params *AnimalCreateParams) (*Animal, error) {
+	if err := params.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &Animal{
+		AnimalTypes:        params.AnimalTypes,
+		Length:             params.Length,
+		Weight:             params.Weight,
+		Height:             params.Height,
+		Gender:             params.Gender,
+		ChipperID:          params.ChipperID,
+		ChippingLocationId: params.ChippingLocationID,
+		LifeStatus:         "ALIVE",
+		ChippingDateTime:   time.Now(),
+		DeathDateTime:      nil,
+	}, nil
 }
 
-func validateList(l *[]int) bool {
-	for _, v := range *l {
-		if v <= 0 {
-			return false
-		}
-	}
-	return true
+type AnimalCreateParams struct {
+	AnimalTypes        []int   `json:"animalTypes"`
+	Length             float32 `json:"length" binding:"gt=0,required"`
+	Weight             float32 `json:"weight" binding:"gt=0,required"`
+	Height             float32 `json:"height" binding:"gt=0,required"`
+	Gender             string  `json:"gender" binding:"allowed_strings=MALE;FEMALE;OTHER"`
+	ChipperID          int     `json:"chipperId" binding:"gt=0,required"`
+	ChippingLocationID int     `json:"chippingLocationId" binding:"gt=0,required"`
 }
 
 func (p *AnimalCreateParams) Validate() error {
@@ -116,126 +131,39 @@ func (p *AnimalCreateParams) Validate() error {
 		Description:   "Invalid create animal params",
 	}
 
-	switch {
-
-	case p.AnimalTypes == nil || len(*p.AnimalTypes) <= 0 || !validateList(p.AnimalTypes):
+	if p.AnimalTypes == nil || len(p.AnimalTypes) <= 0 {
 		return err
-	case p.Weight == nil || *p.Weight <= 0:
-		return err
-	case p.Lenght == nil || *p.Lenght <= 0:
-		return err
-	case p.Height == nil || *p.Height <= 0:
-		return err
-	case p.Gender == nil || (*p.Gender != "MALE" && *p.Gender != "FEMALE" && *p.Gender != "OTHER"):
-		return err
-	case p.ChipperID == nil || *p.ChipperID <= 0:
-		return err
-	case p.ChippingLocationID == nil || *p.ChippingLocationID <= 0:
-		return err
-
-	default:
-		return nil
 	}
+	for _, v := range p.AnimalTypes {
+		if v <= 0 {
+			return err
+		}
+	}
+	return nil
 }
 
 type AnimalUpdateParams struct {
-	Lenght             *float32 `json:"length"`
-	Weight             *float32 `json:"weight"`
-	Height             *float32 `json:"height"`
-	Gender             *string  `json:"gender"`
-	LifeStatus         *string  `json:"lifeStatus"`
-	ChipperID          *int     `json:"chipperId"`
-	ChippingLocationID *int     `json:"chippingLocationId"`
-}
-
-func (p *AnimalUpdateParams) Validate() error {
-	err := &ApplicationError{
-		OriginalError: ErrInvalidInput,
-		SimplifiedErr: ErrInvalidInput,
-	}
-
-	switch {
-
-	case p.Weight == nil || *p.Weight <= 0:
-		err.Description = "invalid weight"
-		return err
-	case p.Lenght == nil || *p.Lenght <= 0:
-		err.Description = "invalid lenght"
-		return err
-	case p.Height == nil || *p.Height <= 0:
-		err.Description = "invalid height"
-		return err
-	case p.Gender == nil || (*p.Gender != "MALE" && *p.Gender != "FEMALE" && *p.Gender != "OTHER"):
-		err.Description = "invalid gender"
-		return err
-	case p.LifeStatus == nil || (*p.LifeStatus != "ALIVE" && *p.LifeStatus != "DEAD"):
-		err.Description = "invalid lifestatus"
-		return err
-	case p.ChipperID == nil || *p.ChipperID <= 0:
-		err.Description = "invalid chipperid"
-		return err
-	case p.ChippingLocationID == nil || *p.ChippingLocationID <= 0:
-		err.Description = "invalid chippinglocationid"
-		return err
-
-	default:
-		return nil
-	}
+	Length             float32 `json:"length" binding:"gt=0,required"`
+	Weight             float32 `json:"weight" binding:"gt=0,required"`
+	Height             float32 `json:"height" binding:"gt=0,required"`
+	Gender             string  `json:"gender" binding:"allowed_strings=MALE;FEMALE;OTHER"`
+	LifeStatus         string  `json:"lifeStatus" binding:"allowed_strings=ALIVE;DEAD"`
+	ChipperID          int     `json:"chipperId" binding:"gt=0,required"`
+	ChippingLocationID int     `json:"chippingLocationId" binding:"gt=0,required"`
 }
 
 type AnimalEditTypeParams struct {
-	OldTypeID *int `json:"oldTypeId"`
-	NewTypeID *int `json:"newTypeId"`
-}
-
-func (p *AnimalEditTypeParams) Validate() error {
-	err := &ApplicationError{
-		OriginalError: nil,
-		SimplifiedErr: ErrInvalidInput,
-	}
-
-	switch {
-	case p.OldTypeID == nil || *p.OldTypeID <= 0:
-		err.Description = "invalid OldtypeID"
-		return err
-
-	case p.NewTypeID == nil || *p.NewTypeID <= 0:
-		err.Description = "invalid NewTypeID"
-		return err
-
-	default:
-		return nil
-	}
-}
-
-func NewAnimal(params AnimalCreateParams) (*Animal, error) {
-	if err := params.Validate(); err != nil {
-		return nil, err
-	}
-
-	return &Animal{
-		AnimalTypes:        *params.AnimalTypes,
-		Lenght:             *params.Lenght,
-		Weight:             *params.Weight,
-		Height:             *params.Height,
-		Gender:             *params.Gender,
-		ChipperID:          *params.ChipperID,
-		ChippingLocationId: *params.ChippingLocationID,
-		LifeStatus:         "ALIVE",
-		ChippingDateTime:   time.Now(),
-		DeathDateTime:      nil,
-	}, nil
+	OldTypeID int `json:"oldTypeId" binding:"gt=0,required"`
+	NewTypeID int `json:"newTypeId" binding:"gt=0,required"`
 }
 
 type AnimalSearchParams struct {
-	StartDateTime *time.Time `form:"startDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
-	EndDateTime   *time.Time `form:"endDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
-
-	ChipperID         *int `form:"chipperId"`
-	ChippedLocationID *int `form:"chippingLocationId"`
-
-	LifeStatus *string `form:"lifeStatus"`
-	Gender     *string `form:"gender"`
+	StartDateTime     *time.Time `form:"startDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
+	EndDateTime       *time.Time `form:"endDateTime" time_format:"2006-01-02T15:04:05Z07:00"`
+	ChipperID         *int       `form:"chipperId"`
+	ChippedLocationID *int       `form:"chippingLocationId"`
+	LifeStatus        *string    `form:"lifeStatus"`
+	Gender            *string    `form:"gender"`
 
 	From *int `form:"from"`
 	Size *int `form:"size"`
@@ -247,7 +175,7 @@ func (s *AnimalSearchParams) Validate() error {
 		SimplifiedErr: ErrInvalidInput,
 		Description:   "validation error",
 	}
-	var defaultFrom, defaultSize = 0, 10
+	var defaultFrom, defaultSize = AnimalSearchDefaultFrom, AnimalSearchDefaultSize
 
 	if s.From == nil {
 		s.From = &defaultFrom
@@ -256,15 +184,9 @@ func (s *AnimalSearchParams) Validate() error {
 		s.Size = &defaultSize
 	}
 
-	switch {
-	case *s.From < 0:
+	if *s.From < 0 || *s.Size <= 0 {
 		return err
-	case *s.Size <= 0:
-		return err
-
-	default:
-		return nil
 	}
 
+	return nil
 }
-

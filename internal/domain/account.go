@@ -61,15 +61,11 @@ func (s *SearchAccount) Validate() error {
 		s.Size = &defaultSize
 	}
 
-	switch {
-	case *s.From < 0:
+	if *s.From < 0 || *s.Size <= 0 {
 		return err
-	case *s.Size <= 0:
-		return err
-
-	default:
-		return nil
 	}
+
+	return nil
 }
 
 type UpdateAccount struct {

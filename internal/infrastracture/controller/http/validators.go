@@ -15,6 +15,17 @@ var ExcludeWhitespace validator.Func = func(fl validator.FieldLevel) bool {
 	return !(strings.Contains(fl.Field().String(), " ") || strings.Contains(fl.Field().String(), "\n") || strings.Contains(fl.Field().String(), "\t"))
 }
 
+// AllowedStrings валидатор, разрешающий только перечисленные через ";" строки
+// доступен как binding:"allowed_strings=test,strings"
+var AllowedStrings validator.Func = func(fl validator.FieldLevel) bool {
+	for _, v := range strings.Split(fl.Param(), ";") {
+		if v == fl.Field().String() {
+			return true
+		}
+	}
+	return false
+}
+
 // getIntQuery достаёт значение из Query ?{key} из копии gin.Context,
 // При этом подставляет deafult_ значение, если задано null или значение отсутствует
 func getIntQuery(cCp *gin.Context, key string, default_ int) (int, error) {
