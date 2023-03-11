@@ -9,10 +9,10 @@ import (
 const pointIDParam = "pointId"
 
 type locationUsecase interface {
-	CreateLocation(lat, lon float64) (*domain.Location, error)
-	GetLocation(locationID int) (*domain.Location, error)
-	UpdateLocation(locationID int, location *domain.Location) (*domain.Location, error)
-	DeleteLocation(locationID int) error
+	Location(id int) (*domain.Location, error)
+	Create(lat, lon float64) (*domain.Location, error)
+	Update(id int, location *domain.Location) (*domain.Location, error)
+	Delete(id int) error
 }
 
 type authMiddleware interface {
@@ -35,86 +35,82 @@ func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	{
 		locations.Use(h.middleware.checkAuthHeaderMiddleware)
 		locations.GET("/:pointId",
-			errorHandlerWrap(h.getLocationPoint),
+			errorHandlerWrap(h.locationPoint),
 		)
 		locations.POST("",
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.createLocation),
+			errorHandlerWrap(h.create),
 		)
 		locations.PUT("/:pointId",
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.updateLocation),
+			errorHandlerWrap(h.update),
 		)
 		locations.DELETE("/:pointId",
 			h.middleware.authMiddleware,
-			errorHandlerWrap(h.deleteLocation),
+			errorHandlerWrap(h.delete),
 		)
 	}
 
 	return router
 }
 
-func (h *LocationHandler) getLocationPoint(c *gin.Context) error {
+func (h *LocationHandler) locationPoint(c *gin.Context) error {
 	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}
 
-	location, err := h.usecase.GetLocation(pointID)
+	location, err := h.usecase.Location(pointID)
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, location)
+	c.JSON(http.StatusOK, location.Map())
 	return nil
 }
 
-func (h *LocationHandler) createLocation(c *gin.Context) error {
+func (h *LocationHandler) create(c *gin.Context) error {
 	var newLocation *domain.Location
-
 	if err := c.BindJSON(&newLocation); err != nil {
 		return NewErrBind(err)
 	}
 
-	location, err := h.usecase.CreateLocation(*newLocation.Latitude, *newLocation.Longitude)
+	location, err := h.usecase.Create(*newLocation.Latitude, *newLocation.Longitude)
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, location)
+	c.JSON(http.StatusCreated, location.Map())
 	return nil
 }
 
-func (h *LocationHandler) updateLocation(c *gin.Context) error {
-
+func (h *LocationHandler) update(c *gin.Context) error {
 	pointID, err := validateID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}
 
 	var newLocation *domain.Location
-	if err := c.BindJSON(&newLocation); err != nil {
+	if err = c.BindJSON(&newLocation); err != nil {
 		return NewErrBind(err)
 	}
 
-	newLocation, err = h.usecase.UpdateLocation(pointID, newLocation)
+	newLocation, err = h.usecase.Update(pointID, newLocation)
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, newLocation)
+	c.JSON(http.StatusOK, newLocation.Map())
 	return nil
 }
 
-func (h *LocationHandler) deleteLocation(c *gin.Context) error {
-
+func (h *LocationHandler) delete(c *gin.Context) error {
 	pointID, err := validateID(c.Copy(), pointIDParam)
-
 	if err != nil {
 		return err
 	}
 
-	err = h.usecase.DeleteLocation(pointID)
+	err = h.usecase.Delete(pointID)
 	if err != nil {
 		return err
 	}

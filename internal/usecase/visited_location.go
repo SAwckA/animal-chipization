@@ -51,7 +51,7 @@ func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedL
 		}
 	}
 
-	_, err = u.locationRepo.GetLocation(pointID)
+	_, err = u.locationRepo.Location(pointID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 		return nil, err
 	}
 
-	_, err = u.locationRepo.GetLocation(*newLocation.LocationPointID)
+	_, err = u.locationRepo.Location(*newLocation.LocationPointID)
 	if err != nil {
 		return nil, err
 	}
