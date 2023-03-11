@@ -102,7 +102,7 @@ func (r *AnimalTypeRepository) Delete(id int) error {
 		if strings.Contains(err.Error(), animalTypeFkey) {
 			return &domain.ApplicationError{
 				OriginalError: err,
-				SimplifiedErr: domain.ErrLinked,
+				SimplifiedErr: domain.ErrInvalidInput,
 				Description:   "animal type linked with animal",
 			}
 		}

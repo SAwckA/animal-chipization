@@ -100,7 +100,7 @@ func (r *LocationRepository) DeleteLocation(locationID int) error {
 	if err != nil {
 		return &domain.ApplicationError{
 			OriginalError: err,
-			SimplifiedErr: domain.ErrLinked,
+			SimplifiedErr: domain.ErrInvalidInput,
 			Description:   "location linked with animal visited location",
 		}
 	}
