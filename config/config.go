@@ -36,10 +36,6 @@ type AppConfig struct {
 	HttpConfig struct {
 		Port string `yaml:"port"`
 	} `yaml:"http"`
-
-	LogConfig struct {
-		Level string `yaml:"level"`
-	} `yaml:"log"`
 }
 
 func LoadConfig() AppConfig {

@@ -48,7 +48,7 @@ func Run() error {
 	animalHandler := http.NewAnimalHandler(animalUsecase, middleware)
 	visitedLocationHandler := http.NewVisitedLocationsHandler(visitedLocationUsecase, middleware)
 
-	gin.SetMode(appConfig.LogConfig.Level)
+	gin.SetMode(gin.ReleaseMode)
 
 	router := gin.New()
 
