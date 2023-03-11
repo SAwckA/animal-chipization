@@ -7,14 +7,20 @@ import (
 	"animal-chipization/internal/infrastracture/repository"
 	psql "animal-chipization/internal/infrastracture/repository/postgresql"
 	"animal-chipization/internal/usecase"
+	"context"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
-func Run() error {
+func Run() {
 	_ = godotenv.Load()
 
 	appConfig := config.LoadConfig()
@@ -24,8 +30,6 @@ func Run() error {
 	if err != nil {
 		log.Fatalf("cant connect to database, cause: %s", err.Error())
 	}
-
-	//migrations.Migrate(appConfig.PostgresConfig.ConnString())
 
 	accountRepository := psql.NewAccountRepository(psqlDB)
 	locationRepository := psql.NewLocationRepository(psqlDB)
@@ -66,5 +70,27 @@ func Run() error {
 
 	server := controller.NewHTTPServer(appConfig.HttpConfig.Port, router)
 
-	return server.Run()
+	logrus.Infof("HTTP SERVER IS STARTING AT PORT: %s", appConfig.HttpConfig.Port)
+	go func() {
+		_ = server.Run()
+	}()
+
+	quit := make(chan os.Signal)
+
+	signal.Notify(quit, os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("SHUTDOWN HTTP SERVER...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Error during shutdown http server:", err)
+	}
+
+	select {
+	case <-ctx.Done():
+		log.Println("timeout of 3 seconds.")
+	}
+
+	log.Println("Server exiting")
 }

@@ -21,7 +21,7 @@ func NewPostgresDB(config postgresConfig) (db *sqlx.DB, err error) {
 	var maxRetries = 5
 	var timeoutRetry = 2 * time.Second
 
-	for i := 0; i < maxRetries; i++ {
+	for i := 1; i <= maxRetries; i++ {
 		db, err = sqlx.Open("pgx", config.DataSourceString())
 
 		if err != nil {
