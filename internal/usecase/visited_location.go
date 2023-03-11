@@ -5,11 +5,11 @@ import (
 )
 
 type visitedLocationRepository interface {
-	Get(id int) (*domain.VisitedLocation, error)
-	Save(animalID int, location domain.VisitedLocation) (int, error)
-	Update(domain.VisitedLocation) error
+	VisitedLocation(id int) (*domain.VisitedLocation, error)
+	Search(animalID int, params *domain.SearchVisitedLocation) ([]domain.VisitedLocation, error)
+	Save(animalID int, location *domain.VisitedLocation) (int, error)
+	Update(visitedLocation *domain.VisitedLocation) error
 	Delete(id int) error
-	Search(animalID int, params domain.SearchVisitedLocationDTO) (*[]domain.VisitedLocation, error)
 }
 
 type VisitedLocationUsecase struct {
@@ -18,16 +18,14 @@ type VisitedLocationUsecase struct {
 	locationRepo locationRepository
 }
 
-func NewVisitedLocationUsecase(repo visitedLocationRepository, locatoinRepo locationRepository, animalRepo animalRepository) *VisitedLocationUsecase {
+func NewVisitedLocationUsecase(repo visitedLocationRepository, locationRepo locationRepository, animalRepo animalRepository) *VisitedLocationUsecase {
 	return &VisitedLocationUsecase{
 		repo:         repo,
-		locationRepo: locatoinRepo,
+		locationRepo: locationRepo,
 		animalRepo:   animalRepo,
 	}
 }
 
-// Добавление точки локации, посещенной животным
-//
 func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedLocation, error) {
 	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
@@ -57,7 +55,6 @@ func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedL
 	}
 
 	// Попытка добавить точку локации, в которой уже находится животное
-
 	if len(animal.VisitedLocations) > 0 {
 		if animal.VisitedLocations[len(animal.VisitedLocations)-1].LocationPointID == pointID {
 			return nil, &domain.ApplicationError{
@@ -67,42 +64,49 @@ func (u *VisitedLocationUsecase) Create(animalID, pointID int) (*domain.VisitedL
 		}
 	}
 
-	visitedLocaton := domain.NewVisitedLocation(pointID)
+	visitedLocation := domain.NewVisitedLocation(pointID)
 
-	locationID, err := u.repo.Save(animalID, *visitedLocaton)
+	locationID, err := u.repo.Save(animalID, visitedLocation)
 	if err != nil {
 		return nil, err
 	}
 
-	visitedLocaton.ID = locationID
+	visitedLocation.ID = locationID
 
-	return visitedLocaton, nil
+	return visitedLocation, nil
 }
 
-// Изменение точки локации, посещенной животным
-//
-func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateVisitedLocationDTO) (*domain.VisitedLocation, error) {
-	if err := newLocation.Validate(); err != nil {
+func (u *VisitedLocationUsecase) Search(animalID int, params *domain.SearchVisitedLocation) ([]domain.VisitedLocation, error) {
+	if err := params.Validate(); err != nil {
 		return nil, err
 	}
 
+	_, err := u.animalRepo.Animal(animalID)
+	if err != nil {
+		return nil, err
+	}
+
+	return u.repo.Search(animalID, params)
+}
+
+func (u *VisitedLocationUsecase) Update(animalID int, location *domain.UpdateVisitedLocationDTO) (*domain.VisitedLocation, error) {
 	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = u.locationRepo.Location(*newLocation.LocationPointID)
+	_, err = u.locationRepo.Location(location.LocationPointID)
 	if err != nil {
 		return nil, err
 	}
 
-	visitedLocation, err := u.repo.Get(*newLocation.VisitedLocationPointID)
+	visitedLocation, err := u.repo.VisitedLocation(location.VisitedLocationPointID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Обновление точки на такую же точку
-	if visitedLocation.LocationPointID == *newLocation.LocationPointID {
+	if visitedLocation.LocationPointID == location.LocationPointID {
 		return nil, &domain.ApplicationError{
 			OriginalError: nil,
 			SimplifiedErr: domain.ErrInvalidInput,
@@ -111,14 +115,14 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 	}
 
 	if len(animal.VisitedLocations) > 0 {
-		pos, err := animal.FindVisitedLocationPos(*newLocation.VisitedLocationPointID)
+		pos, err := animal.FindVisitedLocationPos(location.VisitedLocationPointID)
 		if err != nil {
 			return nil, err
 		}
 
 		// Обновление первой посещенной точки на точку чипирования
 		if pos == 0 {
-			if animal.ChippingLocationId == *newLocation.LocationPointID {
+			if animal.ChippingLocationId == location.LocationPointID {
 				return nil, &domain.ApplicationError{
 					OriginalError: nil,
 					SimplifiedErr: domain.ErrInvalidInput,
@@ -129,7 +133,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 
 		// Обновление точки локации на точку, совпадающую со следующей и/или с предыдущей точками
 		if pos > 0 && len(animal.VisitedLocations) > 1 {
-			if animal.VisitedLocations[pos-1].LocationPointID == *newLocation.LocationPointID {
+			if animal.VisitedLocations[pos-1].LocationPointID == location.LocationPointID {
 				return nil, &domain.ApplicationError{
 					OriginalError: nil,
 					SimplifiedErr: domain.ErrInvalidInput,
@@ -138,7 +142,7 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 			}
 		}
 		if pos < (len(animal.VisitedLocations) - 1) {
-			if animal.VisitedLocations[pos+1].LocationPointID == *newLocation.LocationPointID {
+			if animal.VisitedLocations[pos+1].LocationPointID == location.LocationPointID {
 				return nil, &domain.ApplicationError{
 					OriginalError: nil,
 					SimplifiedErr: domain.ErrInvalidInput,
@@ -148,15 +152,14 @@ func (u *VisitedLocationUsecase) Update(animalID int, newLocation domain.UpdateV
 		}
 	}
 
-	visitedLocation.LocationPointID = *newLocation.LocationPointID
+	visitedLocation.LocationPointID = location.LocationPointID
 
-	err = u.repo.Update(*visitedLocation)
+	err = u.repo.Update(visitedLocation)
 
 	return visitedLocation, err
 }
 
-// Удаление посещённой точки локации животного
-func (u *VisitedLocationUsecase) Delete(animalID int, locatoinID int) error {
+func (u *VisitedLocationUsecase) Delete(animalID int, locationID int) error {
 	// Животное с animalId не найдено
 	animal, err := u.animalRepo.Animal(animalID)
 	if err != nil {
@@ -164,43 +167,29 @@ func (u *VisitedLocationUsecase) Delete(animalID int, locatoinID int) error {
 	}
 
 	// Объект с информацией о посещенной точке локации с visitedPointId не найден.
-	_, err = u.repo.Get(locatoinID)
+	_, err = u.repo.VisitedLocation(locationID)
 	if err != nil {
 		return err
 	}
+
 	// У животного нет объекта с информацией о посещенной точке локации с visitedPointId
-	_, err = animal.FindVisitedLocationPos(locatoinID)
-
+	_, err = animal.FindVisitedLocationPos(locationID)
 	if err != nil {
 		return err
 	}
-
-	//TODO: (Если удаляется первая посещенная точка локации, а вторая точка совпадает с точкой чипирования, то она удаляется автоматически)
 
 	if len(animal.VisitedLocations) >= 2 {
-		pos, err := animal.FindVisitedLocationPos(locatoinID)
+		pos, err := animal.FindVisitedLocationPos(locationID)
 		if err != nil {
 			return err
 		}
 
 		if pos == 0 {
 			if animal.VisitedLocations[pos+1].LocationPointID == animal.ChippingLocationId {
-				u.repo.Delete(animal.VisitedLocations[pos+1].ID)
+				_ = u.repo.Delete(animal.VisitedLocations[pos+1].ID)
 			}
 		}
 	}
 
-	return u.repo.Delete(locatoinID)
-}
-
-func (u *VisitedLocationUsecase) Search(animalID int, params domain.SearchVisitedLocationDTO) (*[]domain.VisitedLocation, error) {
-	if err := params.Validate(); err != nil {
-		return nil, err
-	}
-	_, err := u.animalRepo.Animal(animalID)
-	if err != nil {
-		return nil, err
-	}
-
-	return u.repo.Search(animalID, params)
+	return u.repo.Delete(locationID)
 }
