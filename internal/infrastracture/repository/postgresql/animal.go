@@ -11,9 +11,12 @@ import (
 )
 
 const (
-	animalTable                 = "public.animal"
-	animalTypesListTable        = "public.animal_types_list"
-	animalVisitedLocationsTable = "public.animal_locations_list"
+	animalTable          = "public.animal"
+	animalTypesListTable = "public.animal_types_list"
+
+	animalChipperIdFKey        = "animal_chipperid_fkey"
+	animalChippingLocationFKey = "animal_chippinglocationid_fkey"
+	animalTypeListTypeIdFKey   = "animal_types_list_type_id_fkey"
 )
 
 type AnimalRepository struct {
@@ -301,7 +304,7 @@ func (r *AnimalRepository) Create(animal *domain.Animal) (int, error) {
 
 	var id int
 	if err := row.Scan(&id); err != nil {
-		if strings.Contains(err.Error(), "animal_chipperid_fkey") {
+		if strings.Contains(err.Error(), animalChipperIdFKey) {
 			return 0, &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrNotFound,
@@ -309,7 +312,7 @@ func (r *AnimalRepository) Create(animal *domain.Animal) (int, error) {
 			}
 		}
 
-		if strings.Contains(err.Error(), "animal_chippinglocationid_fkey") {
+		if strings.Contains(err.Error(), animalChippingLocationFKey) {
 			return 0, &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrNotFound,
@@ -340,7 +343,7 @@ func (r *AnimalRepository) Create(animal *domain.Animal) (int, error) {
 
 	_, err = tx.Exec(fmt.Sprintf("%s %s", baseQuery, strings.Join(argsQuery, ",")), argValues...)
 	if err != nil {
-		if strings.Contains(err.Error(), "animal_types_list_type_id_fkey") {
+		if strings.Contains(err.Error(), animalTypeListTypeIdFKey) {
 			return 0, &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrNotFound,
@@ -387,7 +390,7 @@ func (r *AnimalRepository) Update(animal *domain.Animal) error {
 		animal.ID,
 	)
 	if err != nil {
-		if strings.Contains(err.Error(), "animal_chipperid_fkey") {
+		if strings.Contains(err.Error(), animalChipperIdFKey) {
 			return &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrNotFound,
@@ -395,7 +398,7 @@ func (r *AnimalRepository) Update(animal *domain.Animal) error {
 			}
 		}
 
-		if strings.Contains(err.Error(), "animal_chippinglocationid_fkey") {
+		if strings.Contains(err.Error(), animalChippingLocationFKey) {
 			return &domain.ApplicationError{
 				OriginalError: err,
 				SimplifiedErr: domain.ErrNotFound,

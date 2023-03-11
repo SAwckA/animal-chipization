@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const animalVisitedLocationsTable = "public.animal_locations_list"
+
 type VisitedLocationRepository struct {
 	db *sqlx.DB
 }

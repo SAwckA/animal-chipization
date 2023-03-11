@@ -8,9 +8,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-const animalTypeTable = "public.animal_type"
-const uniqueTypeConstraint = "unique_type"
-const animalTypeFkey = "animal_types_list_type_id_fkey"
+const (
+	animalTypeTable      = "public.animal_type"
+	uniqueTypeConstraint = "unique_type"
+	
+	animalTypeFkey = "animal_types_list_type_id_fkey"
+)
 
 type AnimalTypeRepository struct {
 	db *sqlx.DB
