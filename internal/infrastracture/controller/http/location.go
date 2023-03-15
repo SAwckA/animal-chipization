@@ -15,38 +15,36 @@ type locationUsecase interface {
 	Delete(id int) error
 }
 
-type authMiddleware interface {
-	checkAuthHeaderMiddleware(ctx *gin.Context)
-	authMiddleware(ctx *gin.Context)
-}
-
 type LocationHandler struct {
-	usecase    locationUsecase
-	middleware authMiddleware
+	usecase locationUsecase
+	auth    authMiddleware
 }
 
-func NewLocationHandler(usecase locationUsecase, middleware authMiddleware) *LocationHandler {
-	return &LocationHandler{usecase: usecase, middleware: middleware}
+func NewLocationHandler(usecase locationUsecase, auth authMiddleware) *LocationHandler {
+	return &LocationHandler{
+		usecase: usecase,
+		auth:    auth,
+	}
 }
 
 func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group("/locations")
 	{
-		locations.Use(h.middleware.checkAuthHeaderMiddleware)
+		locations.Use(h.auth.checkAuthHeaderMiddleware)
 		locations.GET("/:pointId",
 			errorHandlerWrap(h.locationPoint),
 		)
 		locations.POST("",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.create),
 		)
 		locations.PUT("/:pointId",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.update),
 		)
 		locations.DELETE("/:pointId",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.delete),
 		)
 	}
@@ -55,7 +53,7 @@ func (h *LocationHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *LocationHandler) locationPoint(c *gin.Context) error {
-	pointID, err := validateID(c.Copy(), pointIDParam)
+	pointID, err := ParamID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}
@@ -85,7 +83,7 @@ func (h *LocationHandler) create(c *gin.Context) error {
 }
 
 func (h *LocationHandler) update(c *gin.Context) error {
-	pointID, err := validateID(c.Copy(), pointIDParam)
+	pointID, err := ParamID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}
@@ -105,7 +103,7 @@ func (h *LocationHandler) update(c *gin.Context) error {
 }
 
 func (h *LocationHandler) delete(c *gin.Context) error {
-	pointID, err := validateID(c.Copy(), pointIDParam)
+	pointID, err := ParamID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}

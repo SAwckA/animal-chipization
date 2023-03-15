@@ -24,27 +24,27 @@ func newErrorResponse(c *gin.Context, statusCode int, msg string) {
 	c.AbortWithStatusJSON(statusCode, errorResponse{Msg: msg})
 }
 
-// Alias для newErrorResponse(c, http.StatusConflict, msg, nil)
+// Alias для newErrorResponse(c, http.StatusConflict, msg)
 func conflictResponse(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusConflict, msg)
 }
 
-// Alias для newErrorResponse(c, http.StatusBadRequest, msg, nil)
+// Alias для newErrorResponse(c, http.StatusBadRequest, msg)
 func badRequest(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusBadRequest, msg)
 }
 
-// Alias для newErrorResponse(c, http.StatusNotFound, msg, nil)
+// Alias для newErrorResponse(c, http.StatusNotFound, msg)
 func notFoundResponse(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusNotFound, msg)
 }
 
-// Alias для newErrorResponse(c, http.StatusForbidden, msg, nil)
+// Alias для newErrorResponse(c, http.StatusForbidden, msg)
 func forbiddenResponse(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusForbidden, msg)
 }
 
-// Alias для newErrorResponse(c, http.StatusUnauthorized, msg, nil)
+// Alias для newErrorResponse(c, http.StatusUnauthorized, msg)
 func unauthorizedResponse(c *gin.Context, msg string) {
 	newErrorResponse(c, http.StatusUnauthorized, msg)
 }

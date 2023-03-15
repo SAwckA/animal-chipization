@@ -18,14 +18,14 @@ type visitedLocationUsecase interface {
 }
 
 type VisitedLocationsHandler struct {
-	usecase    visitedLocationUsecase
-	middleware authMiddleware
+	usecase visitedLocationUsecase
+	auth    authMiddleware
 }
 
-func NewVisitedLocationsHandler(usecase visitedLocationUsecase, middleware authMiddleware) *VisitedLocationsHandler {
+func NewVisitedLocationsHandler(usecase visitedLocationUsecase, auth authMiddleware) *VisitedLocationsHandler {
 	return &VisitedLocationsHandler{
-		usecase:    usecase,
-		middleware: middleware,
+		usecase: usecase,
+		auth:    auth,
 	}
 }
 
@@ -33,20 +33,20 @@ func (h *VisitedLocationsHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	locations := router.Group(fmt.Sprintf("animals/:%s/locations", animalIDParam))
 	{
-		locations.Use(h.middleware.checkAuthHeaderMiddleware)
+		locations.Use(h.auth.checkAuthHeaderMiddleware)
 		locations.GET("",
 			errorHandlerWrap(h.search),
 		)
 		locations.POST(fmt.Sprintf("/:%s", pointIDParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.create),
 		)
 		locations.PUT("",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.update),
 		)
 		locations.DELETE(fmt.Sprintf("/:%s", visitedPointIDParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.delete),
 		)
 	}
@@ -55,12 +55,12 @@ func (h *VisitedLocationsHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *VisitedLocationsHandler) create(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
 
-	pointID, err := validateID(c.Copy(), pointIDParam)
+	pointID, err := ParamID(c.Copy(), pointIDParam)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (h *VisitedLocationsHandler) create(c *gin.Context) error {
 }
 
 func (h *VisitedLocationsHandler) update(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
@@ -95,12 +95,12 @@ func (h *VisitedLocationsHandler) update(c *gin.Context) error {
 }
 
 func (h *VisitedLocationsHandler) delete(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
 
-	locationID, err := validateID(c.Copy(), visitedPointIDParam)
+	locationID, err := ParamID(c.Copy(), visitedPointIDParam)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (h *VisitedLocationsHandler) delete(c *gin.Context) error {
 }
 
 func (h *VisitedLocationsHandler) search(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}

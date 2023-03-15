@@ -18,32 +18,32 @@ type animalTypeUsecase interface {
 }
 
 type AnimalTypeHandler struct {
-	usecase    animalTypeUsecase
-	middleware authMiddleware
+	usecase animalTypeUsecase
+	auth    authMiddleware
 }
 
-func NewAnimalTypeHandler(usecase animalTypeUsecase, middleware authMiddleware) *AnimalTypeHandler {
-	return &AnimalTypeHandler{usecase: usecase, middleware: middleware}
+func NewAnimalTypeHandler(usecase animalTypeUsecase, auth authMiddleware) *AnimalTypeHandler {
+	return &AnimalTypeHandler{usecase: usecase, auth: auth}
 }
 
 func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	animalTypes := router.Group("animals/types")
 	{
-		animalTypes.Use(h.middleware.checkAuthHeaderMiddleware)
+		animalTypes.Use(h.auth.checkAuthHeaderMiddleware)
 		animalTypes.GET(fmt.Sprintf("/:%s", typeParam),
 			errorHandlerWrap(h.animalType),
 		)
 		animalTypes.POST("",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.create),
 		)
 		animalTypes.PUT(fmt.Sprintf("/:%s", typeParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.update),
 		)
 		animalTypes.DELETE(fmt.Sprintf("/:%s", typeParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.delete),
 		)
 	}
@@ -52,7 +52,7 @@ func (h *AnimalTypeHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *AnimalTypeHandler) animalType(c *gin.Context) error {
-	typeID, err := validateID(c.Copy(), typeParam)
+	typeID, err := ParamID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (h *AnimalTypeHandler) create(c *gin.Context) error {
 }
 
 func (h *AnimalTypeHandler) update(c *gin.Context) error {
-	typeID, err := validateID(c.Copy(), typeParam)
+	typeID, err := ParamID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (h *AnimalTypeHandler) update(c *gin.Context) error {
 }
 
 func (h *AnimalTypeHandler) delete(c *gin.Context) error {
-	typeID, err := validateID(c.Copy(), typeParam)
+	typeID, err := ParamID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
