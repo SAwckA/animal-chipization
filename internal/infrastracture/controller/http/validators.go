@@ -26,7 +26,8 @@ var AllowedStrings validator.Func = func(fl validator.FieldLevel) bool {
 	return false
 }
 
-func validateID(cCp *gin.Context, name string) (int, error) {
+// ParamID Нужен, чтобы доставать из параметров ( /{Id} ) и валидировать
+func ParamID(cCp *gin.Context, name string) (int, error) {
 	paramString := cCp.Param(name)
 
 	if paramString == "" || paramString == "null" {

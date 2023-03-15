@@ -22,19 +22,19 @@ type animalUsecase interface {
 }
 
 type AnimalHandler struct {
-	usecase    animalUsecase
-	middleware authMiddleware
+	usecase animalUsecase
+	auth    authMiddleware
 }
 
-func NewAnimalHandler(usecase animalUsecase, middleware authMiddleware) *AnimalHandler {
-	return &AnimalHandler{usecase: usecase, middleware: middleware}
+func NewAnimalHandler(usecase animalUsecase, auth authMiddleware) *AnimalHandler {
+	return &AnimalHandler{usecase: usecase, auth: auth}
 }
 
 func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	animal := router.Group("animals")
 	{
-		animal.Use(h.middleware.checkAuthHeaderMiddleware)
+		animal.Use(h.auth.checkAuthHeaderMiddleware)
 		animal.GET(fmt.Sprintf("/:%s", animalIDParam),
 			errorHandlerWrap(h.animal),
 		)
@@ -44,34 +44,34 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 		)
 
 		animal.POST("",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.create),
 		)
 
 		animal.PUT(fmt.Sprintf("/:%s", animalIDParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.update),
 		)
 
 		animal.DELETE(fmt.Sprintf("/:%s", animalIDParam),
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.delete),
 		)
 
 		types := animal.Group(fmt.Sprintf(":%s/types", animalIDParam))
 		{
 			types.POST(fmt.Sprintf(":%s", typeParam),
-				h.middleware.authMiddleware,
+				h.auth.authMiddleware,
 				errorHandlerWrap(h.addAnimalType),
 			)
 
 			types.PUT("",
-				h.middleware.authMiddleware,
+				h.auth.authMiddleware,
 				errorHandlerWrap(h.editAnimalType),
 			)
 
 			types.DELETE(fmt.Sprintf(":%s", typeParam),
-				h.middleware.authMiddleware,
+				h.auth.authMiddleware,
 				errorHandlerWrap(h.deleteAnimalType),
 			)
 		}
@@ -81,7 +81,7 @@ func (h *AnimalHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *AnimalHandler) animal(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func (h *AnimalHandler) create(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) update(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (h *AnimalHandler) update(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) delete(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return NewErrBind(err)
 	}
@@ -170,12 +170,12 @@ func (h *AnimalHandler) delete(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) addAnimalType(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
 
-	animalTypeID, err := validateID(c.Copy(), typeParam)
+	animalTypeID, err := ParamID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (h *AnimalHandler) addAnimalType(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) editAnimalType(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
@@ -210,12 +210,12 @@ func (h *AnimalHandler) editAnimalType(c *gin.Context) error {
 }
 
 func (h *AnimalHandler) deleteAnimalType(c *gin.Context) error {
-	animalID, err := validateID(c.Copy(), animalIDParam)
+	animalID, err := ParamID(c.Copy(), animalIDParam)
 	if err != nil {
 		return err
 	}
 
-	typeID, err := validateID(c.Copy(), typeParam)
+	typeID, err := ParamID(c.Copy(), typeParam)
 	if err != nil {
 		return err
 	}

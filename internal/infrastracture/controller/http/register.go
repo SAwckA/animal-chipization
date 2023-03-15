@@ -12,21 +12,21 @@ type registerUsecase interface {
 }
 
 type RegisterHandler struct {
-	usecase    registerUsecase
-	middleware AuthMiddleware
+	usecase registerUsecase
+	auth    authMiddleware
 }
 
-func NewRegisterHandler(usecase registerUsecase, middleware *AuthMiddleware) *RegisterHandler {
+func NewRegisterHandler(usecase registerUsecase, auth authMiddleware) *RegisterHandler {
 	return &RegisterHandler{
-		usecase:    usecase,
-		middleware: *middleware,
+		usecase: usecase,
+		auth:    auth,
 	}
 }
 
 func (h *RegisterHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 
 	router.POST("registration",
-		h.middleware.blockAuthHeader,
+		h.auth.blockAuthHeader,
 		errorHandlerWrap(h.CreateAccount),
 	)
 

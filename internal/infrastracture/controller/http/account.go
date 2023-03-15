@@ -17,18 +17,21 @@ type accountUsecase interface {
 }
 
 type AccountHandler struct {
-	usecase    accountUsecase
-	middleware authMiddleware
+	usecase accountUsecase
+	auth    authMiddleware
 }
 
-func NewAccountHandler(usecase accountUsecase, middleware authMiddleware) *AccountHandler {
-	return &AccountHandler{usecase: usecase, middleware: middleware}
+func NewAccountHandler(usecase accountUsecase, auth authMiddleware) *AccountHandler {
+	return &AccountHandler{
+		usecase: usecase,
+		auth:    auth,
+	}
 }
 
 func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 	account := router.Group("/accounts")
 	{
-		account.Use(h.middleware.checkAuthHeaderMiddleware)
+		account.Use(h.auth.checkAuthHeaderMiddleware)
 		account.GET("/:accountId",
 			errorHandlerWrap(h.accountByID),
 		)
@@ -37,11 +40,11 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 			errorHandlerWrap(h.search),
 		)
 		account.PUT("/:accountId",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.update),
 		)
 		account.DELETE("/:accountId",
-			h.middleware.authMiddleware,
+			h.auth.authMiddleware,
 			errorHandlerWrap(h.delete),
 		)
 
@@ -51,7 +54,7 @@ func (h *AccountHandler) InitRoutes(router *gin.Engine) *gin.Engine {
 }
 
 func (h *AccountHandler) accountByID(c *gin.Context) error {
-	accountID, err := validateID(c.Copy(), accountIDParam)
+	accountID, err := ParamID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err
 	}
@@ -90,7 +93,7 @@ func (h *AccountHandler) search(c *gin.Context) error {
 }
 
 func (h *AccountHandler) update(c *gin.Context) error {
-	accountID, err := validateID(c.Copy(), accountIDParam)
+	accountID, err := ParamID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err
 	}
@@ -113,7 +116,7 @@ func (h *AccountHandler) update(c *gin.Context) error {
 }
 
 func (h *AccountHandler) delete(c *gin.Context) error {
-	accountID, err := validateID(c.Copy(), accountIDParam)
+	accountID, err := ParamID(c.Copy(), accountIDParam)
 	if err != nil {
 		return err
 	}

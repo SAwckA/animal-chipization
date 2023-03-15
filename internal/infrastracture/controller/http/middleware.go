@@ -10,6 +10,12 @@ import (
 
 const accountCtx = "account"
 
+type authMiddleware interface {
+	blockAuthHeader(c *gin.Context)
+	checkAuthHeaderMiddleware(ctx *gin.Context)
+	authMiddleware(ctx *gin.Context)
+}
+
 type authUsecase interface {
 	Login(email, password string) (*domain.Account, error)
 }
