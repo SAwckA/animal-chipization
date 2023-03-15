@@ -14,8 +14,8 @@ services:
       - POSTGRES_PASSWORD=changeme
 
   webapi:
+    image: webapi
     build: .
-
     ports:
       - "8080:8080"
     depends_on:
@@ -27,8 +27,7 @@ services:
       - POSTGRES_USER=dev
       - POSTGRES_PASS=changeme
 
-
-      # Сервис для разворачивания контейнера с автотестами
+  # Сервис для разворачивания контейнера с автотестами
   tests: 
     image: mrexpen/planet_olymp_phase1
     pull_policy: always
